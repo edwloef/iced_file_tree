@@ -1,4 +1,4 @@
-use crate::File;
+use crate::{err::ErrorFile, File};
 use iced::{
     advanced::{
         graphics::geometry::Renderer as _,
@@ -129,7 +129,7 @@ where
 
         files
             .into_iter()
-            .filter_map(|(entry, _)| {
+            .map(|(entry, _)| {
                 let path = entry.path();
                 if path.is_file() {
                     let file = File::new_inner(
@@ -138,17 +138,16 @@ where
                         self.on_double_click.clone(),
                     )
                     .into();
-                    Some(file)
-                } else if path.is_dir() {
-                    Folder::new_inner(
-                        path,
-                        self.on_single_click.clone(),
-                        self.on_double_click.clone(),
-                        self.show_hidden,
-                    )
-                    .map(Into::into)
+                    file
+                } else if let Some(folder) = Folder::new_inner(
+                    path,
+                    self.on_single_click.clone(),
+                    self.on_double_click.clone(),
+                    self.show_hidden,
+                ) {
+                    folder.into()
                 } else {
-                    None
+                    ErrorFile::new_inner(entry.path()).into()
                 }
             })
             .collect()

@@ -54,7 +54,7 @@ impl<'a, Message> File<'a, Message> {
     }
 }
 
-impl<'a, Message> Widget<Message, Theme, Renderer> for File<'a, Message> {
+impl<Message> Widget<Message, Theme, Renderer> for File<'_, Message> {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }

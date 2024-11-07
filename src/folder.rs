@@ -204,8 +204,7 @@ where
             return Status::Ignored;
         }
 
-        return self
-            .children
+        self.children
             .get_mut()
             .unwrap()
             .iter_mut()
@@ -223,7 +222,7 @@ where
                     viewport,
                 )
             })
-            .fold(Status::Ignored, Status::merge);
+            .fold(Status::Ignored, Status::merge)
     }
 
     fn draw(

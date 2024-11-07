@@ -41,16 +41,14 @@ impl<'a, Message> File<'a, Message> {
         path: PathBuf,
         on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
         on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
-    ) -> Option<Self> {
-        if !path.is_file() {
-            return None;
-        }
+    ) -> Self {
+        debug_assert!(path.is_file());
 
-        Some(Self {
+        Self {
             path,
             on_single_click,
             on_double_click,
-        })
+        }
     }
 }
 

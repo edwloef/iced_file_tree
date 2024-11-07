@@ -17,6 +17,8 @@ use iced::{
 };
 use std::{
     cell::{OnceCell, RefCell},
+    cmp::Ordering,
+    ops::Deref,
     path::PathBuf,
     rc::Rc,
 };
@@ -91,28 +93,51 @@ where
     }
 
     fn init_children(&self) -> Vec<Element<'a, Message, Theme, Renderer>> {
-        let mut contains = vec![];
-
-        std::fs::read_dir(&self.path)
+        let mut files: Vec<_> = std::fs::read_dir(&self.path)
             .unwrap()
             .filter_map(Result::ok)
-            .for_each(|entry| {
-                if let Some(file) = File::new_inner(
-                    entry.path(),
-                    self.on_single_click.clone(),
-                    self.on_double_click.clone(),
-                ) {
-                    contains.push(file.into());
-                } else if let Some(folder) = Folder::new_inner(
-                    entry.path(),
-                    self.on_single_click.clone(),
-                    self.on_double_click.clone(),
-                ) {
-                    contains.push(folder.into());
-                }
-            });
+            .collect();
 
-        contains
+        files.sort_by(|a, b| {
+            if let (Ok(a), Ok(b)) = (a.file_type(), b.file_type()) {
+                if !a.is_dir() && b.is_dir() {
+                    return Ordering::Greater;
+                } else if a.is_dir() && !b.is_dir() {
+                    return Ordering::Less;
+                }
+            }
+
+            let mut a = a.file_name();
+            a.make_ascii_lowercase();
+            let mut b = b.file_name();
+            b.make_ascii_lowercase();
+            a.cmp(&b)
+        });
+
+        files
+            .into_iter()
+            .filter_map(|entry| {
+                let path = entry.path();
+                if path.is_file() {
+                    let file = File::new_inner(
+                        path,
+                        self.on_single_click.clone(),
+                        self.on_double_click.clone(),
+                    )
+                    .into();
+                    Some(file)
+                } else if path.is_dir() {
+                    Folder::new_inner(
+                        path,
+                        self.on_single_click.clone(),
+                        self.on_double_click.clone(),
+                    )
+                    .map(Into::into)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
@@ -130,7 +155,15 @@ where
     }
 
     fn diff(&self, tree: &mut Tree) {
-        tree.diff_children(self.children.get_or_init(|| self.init_children()));
+        let state = tree.state.downcast_ref::<State>();
+
+        tree.diff_children(self.children.get().map(Deref::deref).unwrap_or_else(|| {
+            if state.open {
+                &**self.children.get_or_init(|| self.init_children())
+            } else {
+                &[]
+            }
+        }));
     }
 
     fn size(&self) -> Size<Length> {
@@ -168,7 +201,7 @@ where
                 .left(state.line_height.get().unwrap() + SPACING),
             SPACING,
             Alignment::Start,
-            self.children.get().unwrap(),
+            self.children.get_or_init(|| self.init_children()),
             &mut tree.children,
         )
     }

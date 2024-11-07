@@ -310,7 +310,7 @@ where
         } else {
             FOLDER_CLOSED
         }))
-        .color(theme.extended_palette().primary.base.text);
+        .color(theme.extended_palette().secondary.base.text);
 
         let offset = (state.line_height.get().unwrap() * 0.1).round();
         renderer.draw_svg(
@@ -344,7 +344,7 @@ where
         renderer.fill_text(
             name,
             bounds.position() + Vector::new(SPACING + state.line_height.get().unwrap(), SPACING),
-            theme.extended_palette().primary.base.text,
+            theme.extended_palette().secondary.base.text,
             bounds,
         );
 

@@ -102,7 +102,7 @@ impl<Message> Widget<Message, Theme, Renderer> for File<'_, Message> {
         renderer.fill_quad(background, background_color);
 
         let icon =
-            Svg::new(Handle::from_memory(FILE)).color(theme.extended_palette().primary.base.text);
+            Svg::new(Handle::from_memory(FILE)).color(theme.extended_palette().secondary.base.text);
 
         renderer.draw_svg(
             icon,
@@ -135,7 +135,7 @@ impl<Message> Widget<Message, Theme, Renderer> for File<'_, Message> {
         renderer.fill_text(
             name,
             bounds.position() + Vector::new(SPACING + *state.line_height.get().unwrap(), SPACING),
-            theme.extended_palette().primary.base.text,
+            theme.extended_palette().secondary.base.text,
             bounds,
         );
     }

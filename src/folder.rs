@@ -171,13 +171,16 @@ where
     fn diff(&self, tree: &mut Tree) {
         let state = tree.state.downcast_ref::<State>();
 
-        tree.diff_children(self.children.get().map(Deref::deref).unwrap_or_else(|| {
-            if state.open {
-                &**self.children.get_or_init(|| self.init_children())
-            } else {
-                &[]
-            }
-        }));
+        tree.diff_children(self.children.get().map_or_else(
+            || {
+                if state.open {
+                    &**self.children.get_or_init(|| self.init_children())
+                } else {
+                    &[]
+                }
+            },
+            Deref::deref,
+        ));
     }
 
     fn size(&self) -> Size<Length> {

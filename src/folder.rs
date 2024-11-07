@@ -38,6 +38,7 @@ pub struct Folder<'a, Message> {
     children: OnceCell<Vec<Element<'a, Message, Theme, Renderer>>>,
     on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
     on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
+    show_hidden: bool,
 }
 
 impl<'a, Message> Folder<'a, Message>
@@ -55,6 +56,7 @@ where
             children: OnceCell::new(),
             on_single_click: Rc::default(),
             on_double_click: Rc::default(),
+            show_hidden: false,
         })
     }
 
@@ -74,11 +76,18 @@ where
         self
     }
 
+    #[must_use]
+    pub fn hidden(mut self, show_hidden: bool) -> Self {
+        self.show_hidden = show_hidden;
+        self
+    }
+
     #[expect(clippy::type_complexity)]
     fn new_inner(
         path: PathBuf,
         on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
         on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
+        show_hidden: bool,
     ) -> Option<Self> {
         if std::fs::read_dir(&path).is_err() {
             return None;
@@ -89,6 +98,7 @@ where
             children: OnceCell::new(),
             on_single_click,
             on_double_click,
+            show_hidden,
         })
     }
 
@@ -96,9 +106,16 @@ where
         let mut files: Vec<_> = std::fs::read_dir(&self.path)
             .unwrap()
             .filter_map(Result::ok)
+            .map(|file| {
+                let mut name = file.file_name();
+                name.make_ascii_lowercase();
+
+                (file, name)
+            })
+            .filter(|(_, name)| !self.show_hidden && !name.as_encoded_bytes().starts_with(b"."))
             .collect();
 
-        files.sort_by(|a, b| {
+        files.sort_by(|(a, aname), (b, bname)| {
             if let (Ok(a), Ok(b)) = (a.file_type(), b.file_type()) {
                 if !a.is_dir() && b.is_dir() {
                     return Ordering::Greater;
@@ -107,16 +124,12 @@ where
                 }
             }
 
-            let mut a = a.file_name();
-            a.make_ascii_lowercase();
-            let mut b = b.file_name();
-            b.make_ascii_lowercase();
-            a.cmp(&b)
+            aname.cmp(bname)
         });
 
         files
             .into_iter()
-            .filter_map(|entry| {
+            .filter_map(|(entry, _)| {
                 let path = entry.path();
                 if path.is_file() {
                     let file = File::new_inner(
@@ -131,6 +144,7 @@ where
                         path,
                         self.on_single_click.clone(),
                         self.on_double_click.clone(),
+                        self.show_hidden,
                     )
                     .map(Into::into)
                 } else {

@@ -21,7 +21,7 @@ struct State {
     line_height: OnceCell<f32>,
 }
 
-#[expect(missing_debug_implementations)]
+#[derive(Debug)]
 pub struct ErrorFile {
     path: PathBuf,
 }

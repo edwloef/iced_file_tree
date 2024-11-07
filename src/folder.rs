@@ -18,6 +18,7 @@ use iced::{
 use std::{
     cell::{OnceCell, RefCell},
     cmp::Ordering,
+    fmt::{Debug, Formatter},
     ops::Deref,
     path::PathBuf,
     rc::Rc,
@@ -32,13 +33,22 @@ struct State {
     line_height: OnceCell<f32>,
 }
 
-#[expect(missing_debug_implementations, clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 pub struct Folder<'a, Message> {
     path: PathBuf,
     children: OnceCell<Vec<Element<'a, Message, Theme, Renderer>>>,
     on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
     on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
     show_hidden: bool,
+}
+
+impl Debug for Folder<'_, ()> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Folder")
+            .field("path", &self.path)
+            .field("show_hidden", &self.show_hidden)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a, Message> Folder<'a, Message>

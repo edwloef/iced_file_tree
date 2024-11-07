@@ -15,6 +15,7 @@ use iced::{
 };
 use std::{
     cell::{OnceCell, RefCell},
+    fmt::{Debug, Formatter},
     path::PathBuf,
     rc::Rc,
 };
@@ -27,11 +28,19 @@ struct State {
     line_height: OnceCell<f32>,
 }
 
-#[expect(missing_debug_implementations, clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 pub struct File<'a, Message> {
     path: PathBuf,
     on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
     on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
+}
+
+impl Debug for File<'_, ()> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("File")
+            .field("path", &self.path)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a, Message> File<'a, Message> {

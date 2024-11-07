@@ -12,7 +12,7 @@ use iced::{
     alignment::{Horizontal, Vertical},
     Element, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
-use std::{cell::OnceCell, path::PathBuf};
+use std::{cell::OnceCell, path::Path};
 
 static ERROR: &[u8] = include_bytes!("../assets/system-uicons--cross.svg");
 
@@ -22,17 +22,19 @@ struct State {
 }
 
 #[derive(Debug)]
-pub struct ErrorFile {
-    path: PathBuf,
+pub struct ErrEntry {
+    name: String,
 }
 
-impl ErrorFile {
-    pub fn new_inner(path: PathBuf) -> Self {
-        Self { path }
+impl ErrEntry {
+    pub fn new_inner(path: &Path) -> Self {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+
+        Self { name }
     }
 }
 
-impl<Message> Widget<Message, Theme, Renderer> for ErrorFile {
+impl<Message> Widget<Message, Theme, Renderer> for ErrEntry {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }
@@ -92,12 +94,7 @@ impl<Message> Widget<Message, Theme, Renderer> for ErrorFile {
         );
 
         let name = Text {
-            content: self
-                .path
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .into_owned(),
+            content: self.name.clone(),
             bounds: Size::new(f32::INFINITY, 0.0),
             size: renderer.default_size(),
             line_height: LineHeight::default(),
@@ -117,8 +114,8 @@ impl<Message> Widget<Message, Theme, Renderer> for ErrorFile {
     }
 }
 
-impl<Message> From<ErrorFile> for Element<'_, Message, Theme, Renderer> {
-    fn from(file: ErrorFile) -> Self {
+impl<Message> From<ErrEntry> for Element<'_, Message, Theme, Renderer> {
+    fn from(file: ErrEntry) -> Self {
         Self::new(file)
     }
 }

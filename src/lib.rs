@@ -1,4 +1,4 @@
-mod err;
+mod errentry;
 mod file;
 mod folder;
 

@@ -31,6 +31,7 @@ struct State {
 #[expect(clippy::type_complexity)]
 pub struct File<'a, Message> {
     path: PathBuf,
+    name: String,
     on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
     on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
 }
@@ -52,8 +53,11 @@ impl<'a, Message> File<'a, Message> {
     ) -> Self {
         debug_assert!(path.is_file());
 
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+
         Self {
             path,
+            name,
             on_single_click,
             on_double_click,
         }
@@ -123,12 +127,7 @@ impl<Message> Widget<Message, Theme, Renderer> for File<'_, Message> {
         );
 
         let name = Text {
-            content: self
-                .path
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .into_owned(),
+            content: self.name.clone(),
             bounds: Size::new(f32::INFINITY, 0.0),
             size: renderer.default_size(),
             line_height: LineHeight::default(),

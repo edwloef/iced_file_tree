@@ -1,4 +1,4 @@
-use crate::{err::ErrorFile, file::File};
+use crate::{errentry::ErrEntry, file::File};
 use iced::{
     advanced::{
         graphics::geometry::Renderer as _,
@@ -36,6 +36,7 @@ struct State {
 #[expect(clippy::type_complexity)]
 pub struct Folder<'a, Message> {
     path: PathBuf,
+    name: String,
     children: OnceCell<Vec<Element<'a, Message, Theme, Renderer>>>,
     on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
     on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
@@ -61,8 +62,11 @@ where
             return None;
         }
 
+        let name = path.file_name()?.to_string_lossy().into_owned();
+
         Some(Self {
             path,
+            name,
             children: OnceCell::new(),
             on_single_click: Rc::default(),
             on_double_click: Rc::default(),
@@ -103,8 +107,11 @@ where
             return None;
         }
 
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+
         Some(Self {
             path,
+            name,
             children: OnceCell::new(),
             on_single_click,
             on_double_click,
@@ -149,15 +156,17 @@ where
                     )
                     .into();
                     file
-                } else if let Some(folder) = Folder::new_inner(
-                    path,
-                    self.on_single_click.clone(),
-                    self.on_double_click.clone(),
-                    self.show_hidden,
-                ) {
-                    folder.into()
                 } else {
-                    ErrorFile::new_inner(entry.path()).into()
+                    let Some(folder) = Folder::new_inner(
+                        path.clone(),
+                        self.on_single_click.clone(),
+                        self.on_double_click.clone(),
+                        self.show_hidden,
+                    ) else {
+                        return ErrEntry::new_inner(&path).into();
+                    };
+
+                    folder.into()
                 }
             })
             .collect()
@@ -337,12 +346,7 @@ where
         );
 
         let name = Text {
-            content: self
-                .path
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .into_owned(),
+            content: self.name.clone(),
             bounds: Size::new(f32::INFINITY, 0.0),
             size: renderer.default_size(),
             line_height: LineHeight::default(),

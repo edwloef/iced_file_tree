@@ -1,4 +1,4 @@
-use crate::{err::ErrorFile, File};
+use crate::{err::ErrorFile, file::File};
 use iced::{
     advanced::{
         graphics::geometry::Renderer as _,

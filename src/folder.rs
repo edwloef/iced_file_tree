@@ -1,4 +1,4 @@
-use crate::{File, SPACING};
+use crate::File;
 use iced::{
     advanced::{
         graphics::geometry::Renderer as _,
@@ -200,7 +200,7 @@ where
                 limits.max().width,
                 *state
                     .line_height
-                    .get_or_init(|| renderer.default_size().0.mul_add(1.3, 2.0 * SPACING).ceil()),
+                    .get_or_init(|| (renderer.default_size().0 * 1.3).ceil()),
             ));
         }
 
@@ -211,9 +211,9 @@ where
             Length::Fill,
             Length::Shrink,
             Padding::ZERO
-                .top(state.line_height.get().unwrap() + SPACING)
-                .left(state.line_height.get().unwrap() + SPACING),
-            SPACING,
+                .top(*state.line_height.get().unwrap())
+                .left(*state.line_height.get().unwrap()),
+            0.0,
             Alignment::Start,
             self.children.get_or_init(|| self.init_children()),
             &mut tree.children,
@@ -343,7 +343,7 @@ where
 
         renderer.fill_text(
             name,
-            bounds.position() + Vector::new(SPACING + state.line_height.get().unwrap(), SPACING),
+            bounds.position() + Vector::new(*state.line_height.get().unwrap(), 0.0),
             theme.extended_palette().secondary.base.text,
             bounds,
         );

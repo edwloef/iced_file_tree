@@ -1,4 +1,3 @@
-use crate::SPACING;
 use core::f32;
 use iced::{
     advanced::{
@@ -70,10 +69,9 @@ impl<Message> Widget<Message, Theme, Renderer> for File<'_, Message> {
 
         Node::new(Size::new(
             limits.max().width,
-            state
+            *state
                 .line_height
-                .get_or_init(|| renderer.default_size().0.mul_add(1.3, 2.0 * SPACING))
-                .ceil(),
+                .get_or_init(|| (renderer.default_size().0 * 1.3).ceil()),
         ))
     }
 
@@ -134,7 +132,7 @@ impl<Message> Widget<Message, Theme, Renderer> for File<'_, Message> {
 
         renderer.fill_text(
             name,
-            bounds.position() + Vector::new(SPACING + *state.line_height.get().unwrap(), SPACING),
+            bounds.position() + Vector::new(*state.line_height.get().unwrap(), 0.0),
             theme.extended_palette().secondary.base.text,
             bounds,
         );

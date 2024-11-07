@@ -42,6 +42,7 @@ impl<'a, Message> Folder<'a, Message>
 where
     Message: Clone + 'a,
 {
+    #[must_use]
     pub fn new(path: PathBuf) -> Option<Self> {
         if std::fs::read_dir(&path).is_err() {
             return None;
@@ -55,6 +56,7 @@ where
         })
     }
 
+    #[must_use]
     pub fn on_single_click(self, on_single_click: impl Fn(PathBuf) -> Message + 'a) -> Self {
         self.on_single_click
             .borrow_mut()
@@ -62,6 +64,7 @@ where
         self
     }
 
+    #[must_use]
     pub fn on_double_click(self, on_double_click: impl Fn(PathBuf) -> Message + 'a) -> Self {
         self.on_double_click
             .borrow_mut()
@@ -70,7 +73,7 @@ where
     }
 
     #[expect(clippy::type_complexity)]
-    pub fn new_inner(
+    fn new_inner(
         path: PathBuf,
         on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
         on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,

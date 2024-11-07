@@ -5,4 +5,5 @@ mod folder;
 
 pub(crate) static SPACING: f32 = 1.0;
 
-pub type FileTree<'a, Message> = folder::Folder<'a, Message>;
+#[doc(inline)]
+pub use folder::Folder as FileTree;

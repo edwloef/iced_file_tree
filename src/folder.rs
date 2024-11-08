@@ -1,7 +1,6 @@
 use crate::{errentry::ErrEntry, file::File};
 use iced::{
     advanced::{
-        graphics::geometry::Renderer as _,
         layout::{self, flex::Axis, Limits, Node},
         mouse::{self, Cursor},
         renderer::{Quad, Style},
@@ -12,8 +11,7 @@ use iced::{
     },
     alignment::{Horizontal, Vertical},
     event::Status,
-    widget::canvas::{Frame, Path, Stroke},
-    Alignment, Element, Event, Length, Padding, Point, Rectangle, Renderer, Size, Theme, Vector,
+    Alignment, Element, Event, Length, Padding, Rectangle, Renderer, Size, Theme, Vector,
 };
 use std::{
     cell::{OnceCell, RefCell},
@@ -378,30 +376,17 @@ where
                         .draw(tree, renderer, theme, style, layout, cursor, viewport);
                 });
 
-            let mut frame = Frame::new(renderer, bounds.size());
+            let offset = Vector::new(
+                state.line_height.get().unwrap() * 0.5 - 1.0,
+                state.line_height.get().unwrap() * 1.5 - 1.0,
+            );
+            let size = Size::new(2.0, bounds.size().height - offset.x - offset.y);
+            let line = Quad {
+                bounds: Rectangle::new(bounds.position() + offset, size),
+                ..Default::default()
+            };
 
-            let path = Path::new(|path| {
-                path.line_to(Point::new(
-                    state.line_height.get().unwrap() * 0.5,
-                    state.line_height.get().unwrap() * 1.5,
-                ));
-                path.line_to(Point::new(
-                    state.line_height.get().unwrap() / 2.0,
-                    bounds.size().height - state.line_height.get().unwrap() / 2.0,
-                ));
-            });
-
-            frame.with_clip(bounds, |frame| {
-                frame.stroke(
-                    &path,
-                    Stroke::default()
-                        .with_color(theme.extended_palette().primary.weak.color)
-                        .with_width(2.0),
-                );
-            });
-
-            #[expect(clippy::unit_arg, reason = "clippy bug")]
-            renderer.draw_geometry(frame.into_geometry());
+            renderer.fill_quad(line, theme.extended_palette().primary.weak.color);
         }
     }
 }

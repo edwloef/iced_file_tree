@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 iced = { version = "0.13.1", default-features = false, features = [
     "advanced",
-    "canvas",
     "svg",
 ] }
 

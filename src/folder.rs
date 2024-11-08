@@ -362,7 +362,7 @@ where
             bounds,
         );
 
-        if state.open {
+        if state.open && !self.children.get().unwrap().is_empty() {
             self.children
                 .get()
                 .unwrap()

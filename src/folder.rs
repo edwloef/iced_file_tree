@@ -17,7 +17,6 @@ use std::{
     cell::{OnceCell, RefCell},
     cmp::Ordering,
     fmt::{Debug, Formatter},
-    ops::Deref,
     path::PathBuf,
     rc::Rc,
 };
@@ -185,18 +184,13 @@ where
     }
 
     fn diff(&self, tree: &mut Tree) {
-        let state = tree.state.downcast_ref::<State>();
+        let open = tree.state.downcast_ref::<State>().open;
 
-        tree.diff_children(self.children.get().map_or_else(
-            || {
-                if state.open {
-                    &**self.children.get_or_init(|| self.init_children())
-                } else {
-                    &[]
-                }
-            },
-            Deref::deref,
-        ));
+        tree.diff_children(if open {
+            self.children.get_or_init(|| self.init_children())
+        } else {
+            &[]
+        });
     }
 
     fn size(&self) -> Size<Length> {

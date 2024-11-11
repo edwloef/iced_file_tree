@@ -14,7 +14,7 @@ use iced::{
 };
 use std::{cell::OnceCell, path::Path};
 
-static ERROR: &[u8] = include_bytes!("../assets/system-uicons--cross.svg");
+const ERROR: &[u8] = include_bytes!("../assets/system-uicons--cross.svg");
 
 #[derive(Default)]
 struct State {

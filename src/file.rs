@@ -20,7 +20,7 @@ use std::{
     rc::Rc,
 };
 
-static FILE: &[u8] = include_bytes!("../assets/system-uicons--document.svg");
+const FILE: &[u8] = include_bytes!("../assets/system-uicons--document.svg");
 
 #[derive(Default)]
 struct State {

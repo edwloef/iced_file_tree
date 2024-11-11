@@ -21,8 +21,8 @@ use std::{
     rc::Rc,
 };
 
-static FOLDER_CLOSED: &[u8] = include_bytes!("../assets/system-uicons--chevron-right.svg");
-static FOLDER_OPEN: &[u8] = include_bytes!("../assets/system-uicons--chevron-down.svg");
+const FOLDER_CLOSED: &[u8] = include_bytes!("../assets/system-uicons--chevron-right.svg");
+const FOLDER_OPEN: &[u8] = include_bytes!("../assets/system-uicons--chevron-down.svg");
 
 #[derive(Default)]
 struct State {

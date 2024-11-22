@@ -50,10 +50,18 @@ impl<'a, Message> File<'a, Message> {
         path: PathBuf,
         on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
         on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
+        show_extensions: bool,
     ) -> Self {
         debug_assert!(path.is_file());
 
-        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let name = if show_extensions {
+            path.file_name()
+        } else {
+            path.file_stem()
+        }
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
 
         Self {
             path,

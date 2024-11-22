@@ -30,6 +30,29 @@ struct State {
     line_height: OnceCell<f32>,
 }
 
+/// A lightweight file tree widget for the [iced](https://github.com/iced-rs/iced/tree/master) toolkit.
+///
+/// # Example
+/// ```no_run
+/// use iced::widget::scrollable;
+/// use iced_file_tree::file_tree;
+///
+/// enum Message {
+///     FileTreeMessage(PathBuf),
+///     // ...
+/// }
+///
+/// fn view(state: &State) -> Element<'_, Message> {
+///     let path: PathBuf = /* */
+///
+///     scrollable(
+///         file_tree(path)
+///             .unwrap()
+///             .on_double_click(Message::FileTreeMessage),
+///     )
+///     .into()
+/// }
+/// ```
 #[expect(clippy::type_complexity)]
 pub struct Folder<'a, Message> {
     path: PathBuf,
@@ -38,6 +61,7 @@ pub struct Folder<'a, Message> {
     on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
     on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
     show_hidden: bool,
+    show_extensions: bool,
 }
 
 impl Debug for Folder<'_, ()> {
@@ -53,6 +77,7 @@ impl<'a, Message> Folder<'a, Message>
 where
     Message: Clone + 'a,
 {
+    /// Creates a new [`FileTree`](crate::FileTree) with the root at the given path.
     #[must_use]
     pub fn new(path: PathBuf) -> Option<Self> {
         if std::fs::read_dir(&path).is_err() {
@@ -68,9 +93,11 @@ where
             on_single_click: Rc::default(),
             on_double_click: Rc::default(),
             show_hidden: false,
+            show_extensions: true,
         })
     }
 
+    /// Sets the message that will be produced when the user single-clicks on a file within the file tree.
     #[must_use]
     pub fn on_single_click(self, on_single_click: impl Fn(PathBuf) -> Message + 'a) -> Self {
         self.on_single_click
@@ -79,6 +106,7 @@ where
         self
     }
 
+    /// Sets the message that will be produced when the user double-clicks on a file within the file tree.
     #[must_use]
     pub fn on_double_click(self, on_double_click: impl Fn(PathBuf) -> Message + 'a) -> Self {
         self.on_double_click
@@ -87,9 +115,17 @@ where
         self
     }
 
+    /// Enables or disables showing hidden files (disabled by default).
     #[must_use]
-    pub fn hidden(mut self, show_hidden: bool) -> Self {
+    pub fn hidden_files(mut self, show_hidden: bool) -> Self {
         self.show_hidden = show_hidden;
+        self
+    }
+
+    #[must_use]
+    /// Enables or disables showing file extensions (enabled by default).
+    pub fn file_extensions(mut self, show_extensions: bool) -> Self {
+        self.show_extensions = show_extensions;
         self
     }
 
@@ -99,6 +135,7 @@ where
         on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
         on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
         show_hidden: bool,
+        show_extensions: bool,
     ) -> Option<Self> {
         if std::fs::read_dir(&path).is_err() {
             return None;
@@ -113,6 +150,7 @@ where
             on_single_click,
             on_double_click,
             show_hidden,
+            show_extensions,
         })
     }
 
@@ -150,6 +188,7 @@ where
                         path,
                         self.on_single_click.clone(),
                         self.on_double_click.clone(),
+                        self.show_extensions,
                     )
                     .into();
                     file
@@ -159,6 +198,7 @@ where
                         self.on_single_click.clone(),
                         self.on_double_click.clone(),
                         self.show_hidden,
+                        self.show_extensions,
                     ) else {
                         return ErrEntry::new_inner(&path).into();
                     };

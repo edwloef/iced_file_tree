@@ -158,7 +158,7 @@ where
         let Ok(files) = std::fs::read_dir(&self.path) else {
             return vec![];
         };
-        
+
         let mut files: Vec<_> = files
             .filter_map(Result::ok)
             .map(|file| {
@@ -260,7 +260,7 @@ where
             ));
         }
 
-        layout::flex::resolve(
+        let layout = layout::flex::resolve(
             Axis::Vertical,
             renderer,
             limits,
@@ -271,9 +271,13 @@ where
                 .left(*state.line_height.get().unwrap()),
             0.0,
             Alignment::Start,
-            self.children.get_or_init(|| self.init_children()),
+            self.children.get().unwrap(),
             &mut tree.children,
-        )
+        );
+        
+        self.diff(tree);
+
+        layout
     }
 
     fn on_event(

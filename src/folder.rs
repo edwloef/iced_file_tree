@@ -260,6 +260,10 @@ where
             ));
         }
 
+        self.diff(tree);
+
+        let state = tree.state.downcast_ref::<State>();
+
         let layout = layout::flex::resolve(
             Axis::Vertical,
             renderer,
@@ -271,11 +275,9 @@ where
                 .left(*state.line_height.get().unwrap()),
             0.0,
             Alignment::Start,
-            self.children.get().unwrap(),
+            self.children.get_or_init(|| self.init_children()),
             &mut tree.children,
         );
-        
-        self.diff(tree);
 
         layout
     }
@@ -300,7 +302,6 @@ where
                     <= state.line_height.get().unwrap()
             {
                 state.open ^= true;
-                self.diff(tree);
                 shell.invalidate_layout();
                 return Status::Captured;
             }

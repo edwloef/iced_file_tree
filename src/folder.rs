@@ -155,8 +155,11 @@ where
     }
 
     fn init_children(&self) -> Vec<Element<'a, Message, Theme, Renderer>> {
-        let mut files: Vec<_> = std::fs::read_dir(&self.path)
-            .unwrap()
+        let Ok(files) = std::fs::read_dir(&self.path) else {
+            return vec![];
+        };
+        
+        let mut files: Vec<_> = files
             .filter_map(Result::ok)
             .map(|file| {
                 let mut name = file.file_name();
@@ -293,7 +296,6 @@ where
                     <= state.line_height.get().unwrap()
             {
                 state.open ^= true;
-                self.children.get_or_init(|| self.init_children());
                 self.diff(tree);
                 shell.invalidate_layout();
                 return Status::Captured;

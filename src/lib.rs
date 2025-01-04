@@ -22,11 +22,11 @@
 //! }
 //! ```
 
+mod dir;
 mod file;
-mod folder;
 
 #[doc(inline)]
-pub use folder::Folder as FileTree;
+pub use dir::Dir as FileTree;
 
 use std::path::PathBuf;
 

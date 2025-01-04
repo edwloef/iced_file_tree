@@ -16,17 +16,18 @@ use iced::{
 use std::{
     cell::{OnceCell, RefCell},
     fmt::{Debug, Formatter},
+    ops::Deref,
     path::PathBuf,
     rc::Rc,
 };
 
-const FOLDER_CLOSED: &[u8] = include_bytes!("../assets/system-uicons--chevron-right.svg");
-const FOLDER_OPEN: &[u8] = include_bytes!("../assets/system-uicons--chevron-down.svg");
+const DIR_CLOSED: &[u8] = include_bytes!("../assets/system-uicons--chevron-right.svg");
+const DIR_OPEN: &[u8] = include_bytes!("../assets/system-uicons--chevron-down.svg");
 
 struct State<Message> {
     open: bool,
     line_height: OnceCell<f32>,
-    folders: OnceCell<Rc<[Folder<Message>]>>,
+    dirs: OnceCell<Rc<[Dir<Message>]>>,
     files: OnceCell<Rc<[File<Message>]>>,
 }
 
@@ -35,7 +36,7 @@ impl<Message> Default for State<Message> {
         Self {
             open: false,
             line_height: OnceCell::new(),
-            folders: OnceCell::new(),
+            dirs: OnceCell::new(),
             files: OnceCell::new(),
         }
     }
@@ -66,29 +67,27 @@ impl<Message> Default for State<Message> {
 /// ```
 #[expect(clippy::type_complexity)]
 #[derive(Clone)]
-pub struct Folder<Message> {
+pub struct Dir<Message> {
     path: PathBuf,
     name: String,
-    folders: OnceCell<Rc<[Folder<Message>]>>,
+    dirs: OnceCell<Rc<[Dir<Message>]>>,
     files: OnceCell<Rc<[File<Message>]>>,
-    empty_folders: Rc<[Self]>,
-    empty_files: Rc<[File<Message>]>,
     on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
     on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
     show_hidden: bool,
     show_extensions: bool,
 }
 
-impl<Message> Debug for Folder<Message> {
+impl<Message> Debug for Dir<Message> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Folder")
+        f.debug_struct("Dir")
             .field("path", &self.path)
             .field("show_hidden", &self.show_hidden)
             .finish_non_exhaustive()
     }
 }
 
-impl<Message> Folder<Message>
+impl<Message> Dir<Message>
 where
     Message: Clone + 'static,
 {
@@ -105,9 +104,7 @@ where
             path,
             name,
             files: OnceCell::default(),
-            folders: OnceCell::default(),
-            empty_folders: [].into(),
-            empty_files: [].into(),
+            dirs: OnceCell::default(),
             on_single_click: Rc::default(),
             on_double_click: Rc::default(),
             show_hidden: false,
@@ -150,22 +147,20 @@ where
     #[expect(clippy::type_complexity)]
     fn new_inner(
         path: PathBuf,
-        empty_files: Rc<[File<Message>]>,
-        empty_folders: Rc<[Self]>,
         on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
         on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
         show_hidden: bool,
         show_extensions: bool,
     ) -> Self {
+        debug_assert!(path.is_dir());
+
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
 
         Self {
             path,
             name,
             files: OnceCell::default(),
-            folders: OnceCell::default(),
-            empty_files,
-            empty_folders,
+            dirs: OnceCell::default(),
             on_single_click,
             on_double_click,
             show_hidden,
@@ -178,35 +173,35 @@ where
             return vec![];
         }
 
-        self.folders
-            .get_or_init(|| state.folders.get_or_init(|| self.init_folders()).clone())
+        self.dirs
+            .get_or_init(|| state.dirs.get_or_init(|| self.init_dirs()).clone())
             .iter()
             .cloned()
-            .map(Into::into)
+            .map(Element::from)
             .chain(
                 self.files
                     .get_or_init(|| state.files.get_or_init(|| self.init_files()).clone())
                     .iter()
                     .cloned()
-                    .map(Into::into),
+                    .map(Element::from),
             )
             .collect()
     }
 
     fn get_children(&self) -> Vec<Element<'_, Message, Theme, Renderer>> {
-        self.folders
+        self.dirs
             .get()
-            .unwrap_or(&self.empty_folders)
-            .iter()
+            .into_iter()
+            .flat_map(Deref::deref)
             .cloned()
-            .map(Into::into)
+            .map(Element::from)
             .chain(
                 self.files
                     .get()
-                    .unwrap_or(&self.empty_files)
-                    .iter()
+                    .into_iter()
+                    .flat_map(Deref::deref)
                     .cloned()
-                    .map(Into::into),
+                    .map(Element::from),
             )
             .collect()
     }
@@ -242,12 +237,12 @@ where
             .collect()
     }
 
-    fn init_folders(&self) -> Rc<[Self]> {
-        let Ok(folders) = std::fs::read_dir(&self.path) else {
+    fn init_dirs(&self) -> Rc<[Self]> {
+        let Ok(dirs) = std::fs::read_dir(&self.path) else {
             return [].into();
         };
 
-        let mut folders: Box<_> = folders
+        let mut dirs: Box<_> = dirs
             .filter_map(Result::ok)
             .filter(|file| file.file_type().is_ok_and(|t| t.is_dir()))
             .map(|file| {
@@ -258,15 +253,12 @@ where
             })
             .filter(|(_, name)| !self.show_hidden && !name.as_encoded_bytes().starts_with(b"."))
             .collect();
-        folders.sort_by(|(_, aname), (_, bname)| aname.cmp(bname));
-        folders
-            .iter()
+        dirs.sort_by(|(_, aname), (_, bname)| aname.cmp(bname));
+        dirs.iter()
             .map(|(entry, _)| {
                 let path = entry.path();
                 Self::new_inner(
                     path,
-                    self.empty_files.clone(),
-                    self.empty_folders.clone(),
                     self.on_single_click.clone(),
                     self.on_double_click.clone(),
                     self.show_hidden,
@@ -277,7 +269,7 @@ where
     }
 }
 
-impl<Message> Widget<Message, Theme, Renderer> for Folder<Message>
+impl<Message> Widget<Message, Theme, Renderer> for Dir<Message>
 where
     Message: Clone + 'static,
 {
@@ -419,9 +411,9 @@ where
         renderer.fill_quad(background, background_color);
 
         let icon = Svg::new(Handle::from_memory(if state.open {
-            FOLDER_OPEN
+            DIR_OPEN
         } else {
-            FOLDER_CLOSED
+            DIR_CLOSED
         }))
         .color(theme.extended_palette().secondary.base.text);
 
@@ -483,11 +475,11 @@ where
     }
 }
 
-impl<Message> From<Folder<Message>> for Element<'_, Message, Theme, Renderer>
+impl<Message> From<Dir<Message>> for Element<'_, Message, Theme, Renderer>
 where
     Message: Clone + 'static,
 {
-    fn from(folder: Folder<Message>) -> Self {
-        Self::new(folder)
+    fn from(dir: Dir<Message>) -> Self {
+        Self::new(dir)
     }
 }

@@ -260,16 +260,14 @@ where
     ) -> Status {
         let state = tree.state.downcast_mut::<State<Message>>();
 
-        if let Some(pos) = cursor.position() {
-            if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
-                && layout.bounds().contains(pos)
-                && cursor.position_in(layout.bounds()).unwrap().y
-                    <= renderer.default_size().0 * LINE_HEIGHT
-            {
-                state.open ^= true;
-                shell.invalidate_layout();
-                return Status::Captured;
-            }
+        if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+            && cursor
+                .position_in(layout.bounds())
+                .is_some_and(|p| p.y <= renderer.default_size().0 * LINE_HEIGHT)
+        {
+            state.open ^= true;
+            shell.invalidate_layout();
+            return Status::Captured;
         }
 
         if !state.open {
@@ -305,8 +303,11 @@ where
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
+        let Some(bounds) = layout.bounds().intersection(viewport) else {
+            return;
+        };
+
         let state = tree.state.downcast_ref::<State<Message>>();
-        let bounds = layout.bounds();
 
         let background = Quad {
             bounds: Rectangle::new(

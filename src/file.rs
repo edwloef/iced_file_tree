@@ -100,9 +100,11 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         _style: &Style,
         layout: Layout<'_>,
         cursor: Cursor,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
     ) {
-        let bounds = layout.bounds();
+        let Some(bounds) = layout.bounds().intersection(viewport) else {
+            return;
+        };
 
         let background = Quad {
             bounds,
@@ -160,28 +162,28 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) -> Status {
+        let Some(pos) = cursor.position_in(layout.bounds()) else {
+            return Status::Ignored;
+        };
+
         let state = tree.state.downcast_mut::<State>();
 
-        if let Some(pos) = cursor.position() {
-            if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
-                && layout.bounds().contains(pos)
-            {
-                if let Some(on_single_click) = self.on_single_click.borrow().as_deref() {
-                    shell.publish(on_single_click(self.path.clone()));
-                }
-
-                if let Some(on_double_click) = self.on_double_click.borrow().as_deref() {
-                    let new_click = Click::new(pos, mouse::Button::Left, state.last_click);
-
-                    if matches!(new_click.kind(), mouse::click::Kind::Double) {
-                        shell.publish(on_double_click(self.path.clone()));
-                    }
-
-                    state.last_click = Some(new_click);
-                }
-
-                return Status::Captured;
+        if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) {
+            if let Some(on_single_click) = self.on_single_click.borrow().as_deref() {
+                shell.publish(on_single_click(self.path.clone()));
             }
+
+            if let Some(on_double_click) = self.on_double_click.borrow().as_deref() {
+                let new_click = Click::new(pos, mouse::Button::Left, state.last_click);
+
+                if matches!(new_click.kind(), mouse::click::Kind::Double) {
+                    shell.publish(on_double_click(self.path.clone()));
+                }
+
+                state.last_click = Some(new_click);
+            }
+
+            return Status::Captured;
         }
 
         Status::Ignored

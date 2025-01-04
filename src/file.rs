@@ -13,12 +13,7 @@ use iced::{
     event::Status,
     Event, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
-use std::{
-    cell::RefCell,
-    fmt::{Debug, Formatter},
-    path::PathBuf,
-    rc::Rc,
-};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 const FILE: &[u8] = include_bytes!("../assets/system-uicons--document.svg");
 
@@ -34,14 +29,6 @@ pub struct File<Message> {
     name: String,
     on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
     on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
-}
-
-impl<Message> Debug for File<Message> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("File")
-            .field("path", &self.path)
-            .finish_non_exhaustive()
-    }
 }
 
 impl<Message> File<Message> {

@@ -15,7 +15,6 @@ use iced::{
 };
 use std::{
     cell::{OnceCell, RefCell},
-    fmt::{Debug, Formatter},
     ops::Deref,
     path::PathBuf,
     rc::Rc,
@@ -43,7 +42,7 @@ impl<Message> Default for State<Message> {
 #[expect(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct Dir<Message> {
-    path: PathBuf,
+    pub path: PathBuf,
     name: String,
     dirs: OnceCell<Rc<[Dir<Message>]>>,
     files: OnceCell<Rc<[File<Message>]>>,
@@ -51,15 +50,6 @@ pub struct Dir<Message> {
     pub on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
     pub show_hidden: bool,
     pub show_extensions: bool,
-}
-
-impl<Message> Debug for Dir<Message> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Dir")
-            .field("path", &self.path)
-            .field("show_hidden", &self.show_hidden)
-            .finish_non_exhaustive()
-    }
 }
 
 impl<Message> Dir<Message>

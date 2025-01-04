@@ -10,7 +10,11 @@ use iced::{
     mouse::Cursor,
     Element, Event, Length, Rectangle, Renderer, Size, Theme,
 };
-use std::{path::PathBuf, rc::Rc};
+use std::{
+    fmt::{Debug, Formatter},
+    path::PathBuf,
+    rc::Rc,
+};
 
 /// A lightweight file tree widget for the [iced](https://github.com/iced-rs/iced/tree/master) toolkit.
 ///
@@ -35,8 +39,17 @@ use std::{path::PathBuf, rc::Rc};
 ///     .into()
 /// }
 /// ```
-#[derive(Debug)]
 pub struct FileTree<Message>(Dir<Message>);
+
+impl<Message> Debug for FileTree<Message> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Dir")
+            .field("path", &self.0.path)
+            .field("show_hidden", &self.0.show_hidden)
+            .field("show_extensions", &self.0.show_hidden)
+            .finish()
+    }
+}
 
 /// Creates a new [`FileTree`] with the root at the given path.
 #[must_use]

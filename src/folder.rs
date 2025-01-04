@@ -1,4 +1,4 @@
-use crate::{errentry::ErrEntry, file::File};
+use crate::file::File;
 use iced::{
     advanced::{
         layout::{self, flex::Axis, Limits, Node},
@@ -15,7 +15,6 @@ use iced::{
 };
 use std::{
     cell::{OnceCell, RefCell},
-    cmp::Ordering,
     fmt::{Debug, Formatter},
     path::PathBuf,
     rc::Rc,
@@ -24,10 +23,22 @@ use std::{
 const FOLDER_CLOSED: &[u8] = include_bytes!("../assets/system-uicons--chevron-right.svg");
 const FOLDER_OPEN: &[u8] = include_bytes!("../assets/system-uicons--chevron-down.svg");
 
-#[derive(Default)]
-struct State {
+struct State<Message> {
     open: bool,
     line_height: OnceCell<f32>,
+    folders: OnceCell<Rc<[Folder<Message>]>>,
+    files: OnceCell<Rc<[File<Message>]>>,
+}
+
+impl<Message> Default for State<Message> {
+    fn default() -> Self {
+        Self {
+            open: false,
+            line_height: OnceCell::new(),
+            folders: OnceCell::new(),
+            files: OnceCell::new(),
+        }
+    }
 }
 
 /// A lightweight file tree widget for the [iced](https://github.com/iced-rs/iced/tree/master) toolkit.
@@ -54,17 +65,21 @@ struct State {
 /// }
 /// ```
 #[expect(clippy::type_complexity)]
-pub struct Folder<'a, Message> {
+#[derive(Clone)]
+pub struct Folder<Message> {
     path: PathBuf,
     name: String,
-    children: OnceCell<Vec<Element<'a, Message, Theme, Renderer>>>,
-    on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
-    on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
+    folders: OnceCell<Rc<[Folder<Message>]>>,
+    files: OnceCell<Rc<[File<Message>]>>,
+    empty_folders: Rc<[Self]>,
+    empty_files: Rc<[File<Message>]>,
+    on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
+    on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
     show_hidden: bool,
     show_extensions: bool,
 }
 
-impl Debug for Folder<'_, ()> {
+impl<Message> Debug for Folder<Message> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Folder")
             .field("path", &self.path)
@@ -73,9 +88,9 @@ impl Debug for Folder<'_, ()> {
     }
 }
 
-impl<'a, Message> Folder<'a, Message>
+impl<Message> Folder<Message>
 where
-    Message: Clone + 'a,
+    Message: Clone + 'static,
 {
     /// Creates a new [`FileTree`](crate::FileTree) with the root at the given path.
     #[must_use]
@@ -89,7 +104,10 @@ where
         Some(Self {
             path,
             name,
-            children: OnceCell::new(),
+            files: OnceCell::default(),
+            folders: OnceCell::default(),
+            empty_folders: [].into(),
+            empty_files: [].into(),
             on_single_click: Rc::default(),
             on_double_click: Rc::default(),
             show_hidden: false,
@@ -99,7 +117,7 @@ where
 
     /// Sets the message that will be produced when the user single-clicks on a file within the file tree.
     #[must_use]
-    pub fn on_single_click(self, on_single_click: impl Fn(PathBuf) -> Message + 'a) -> Self {
+    pub fn on_single_click(self, on_single_click: impl Fn(PathBuf) -> Message + 'static) -> Self {
         self.on_single_click
             .borrow_mut()
             .replace(Box::new(on_single_click));
@@ -108,7 +126,7 @@ where
 
     /// Sets the message that will be produced when the user double-clicks on a file within the file tree.
     #[must_use]
-    pub fn on_double_click(self, on_double_click: impl Fn(PathBuf) -> Message + 'a) -> Self {
+    pub fn on_double_click(self, on_double_click: impl Fn(PathBuf) -> Message + 'static) -> Self {
         self.on_double_click
             .borrow_mut()
             .replace(Box::new(on_double_click));
@@ -132,35 +150,75 @@ where
     #[expect(clippy::type_complexity)]
     fn new_inner(
         path: PathBuf,
-        on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
-        on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
+        empty_files: Rc<[File<Message>]>,
+        empty_folders: Rc<[Self]>,
+        on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
+        on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
         show_hidden: bool,
         show_extensions: bool,
-    ) -> Option<Self> {
-        if std::fs::read_dir(&path).is_err() {
-            return None;
-        }
-
+    ) -> Self {
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
 
-        Some(Self {
+        Self {
             path,
             name,
-            children: OnceCell::new(),
+            files: OnceCell::default(),
+            folders: OnceCell::default(),
+            empty_files,
+            empty_folders,
             on_single_click,
             on_double_click,
             show_hidden,
             show_extensions,
-        })
+        }
     }
 
-    fn init_children(&self) -> Vec<Element<'a, Message, Theme, Renderer>> {
-        let Ok(files) = std::fs::read_dir(&self.path) else {
+    fn init_children(&self, state: &State<Message>) -> Vec<Element<'_, Message, Theme, Renderer>> {
+        if !state.open {
             return vec![];
+        }
+
+        self.folders
+            .get_or_init(|| state.folders.get_or_init(|| self.init_folders()).clone())
+            .iter()
+            .cloned()
+            .map(Into::into)
+            .chain(
+                self.files
+                    .get_or_init(|| state.files.get_or_init(|| self.init_files()).clone())
+                    .iter()
+                    .cloned()
+                    .map(Into::into),
+            )
+            .collect()
+    }
+
+    fn get_children(&self) -> Vec<Element<'_, Message, Theme, Renderer>> {
+        self.folders
+            .get()
+            .unwrap_or(&self.empty_folders)
+            .iter()
+            .cloned()
+            .map(Into::into)
+            .chain(
+                self.files
+                    .get()
+                    .unwrap_or(&self.empty_files)
+                    .iter()
+                    .cloned()
+                    .map(Into::into),
+            )
+            .collect()
+    }
+
+    fn init_files(&self) -> Rc<[File<Message>]> {
+        let Ok(files) = std::fs::read_dir(&self.path) else {
+            return [].into();
         };
 
-        let mut files: Vec<_> = files
+        let mut files: Box<_> = files
             .filter_map(Result::ok)
+            .filter(|file| file.file_type().is_ok_and(|t| t.is_file()))
             .map(|file| {
                 let mut name = file.file_name();
                 name.make_ascii_lowercase();
@@ -169,71 +227,68 @@ where
             })
             .filter(|(_, name)| !self.show_hidden && !name.as_encoded_bytes().starts_with(b"."))
             .collect();
-
-        files.sort_by(|(a, aname), (b, bname)| {
-            if let (Ok(a), Ok(b)) = (a.file_type(), b.file_type()) {
-                if !a.is_dir() && b.is_dir() {
-                    return Ordering::Greater;
-                } else if a.is_dir() && !b.is_dir() {
-                    return Ordering::Less;
-                }
-            }
-
-            aname.cmp(bname)
-        });
-
+        files.sort_by(|(_, aname), (_, bname)| aname.cmp(bname));
         files
-            .into_iter()
+            .iter()
             .map(|(entry, _)| {
                 let path = entry.path();
-                if path.is_file() {
-                    let file = File::new_inner(
-                        path,
-                        self.on_single_click.clone(),
-                        self.on_double_click.clone(),
-                        self.show_extensions,
-                    )
-                    .into();
-                    file
-                } else {
-                    let Some(folder) = Folder::new_inner(
-                        path.clone(),
-                        self.on_single_click.clone(),
-                        self.on_double_click.clone(),
-                        self.show_hidden,
-                        self.show_extensions,
-                    ) else {
-                        return ErrEntry::new_inner(&path).into();
-                    };
+                File::new_inner(
+                    path,
+                    self.on_single_click.clone(),
+                    self.on_double_click.clone(),
+                    self.show_extensions,
+                )
+            })
+            .collect()
+    }
 
-                    folder.into()
-                }
+    fn init_folders(&self) -> Rc<[Self]> {
+        let Ok(folders) = std::fs::read_dir(&self.path) else {
+            return [].into();
+        };
+
+        let mut folders: Box<_> = folders
+            .filter_map(Result::ok)
+            .filter(|file| file.file_type().is_ok_and(|t| t.is_dir()))
+            .map(|file| {
+                let mut name = file.file_name();
+                name.make_ascii_lowercase();
+
+                (file, name)
+            })
+            .filter(|(_, name)| !self.show_hidden && !name.as_encoded_bytes().starts_with(b"."))
+            .collect();
+        folders.sort_by(|(_, aname), (_, bname)| aname.cmp(bname));
+        folders
+            .iter()
+            .map(|(entry, _)| {
+                let path = entry.path();
+                Self::new_inner(
+                    path,
+                    self.empty_files.clone(),
+                    self.empty_folders.clone(),
+                    self.on_single_click.clone(),
+                    self.on_double_click.clone(),
+                    self.show_hidden,
+                    self.show_extensions,
+                )
             })
             .collect()
     }
 }
 
-impl<'a, Message> Widget<Message, Theme, Renderer> for Folder<'a, Message>
+impl<Message> Widget<Message, Theme, Renderer> for Folder<Message>
 where
-    Message: Clone + 'a,
+    Message: Clone + 'static,
 {
     fn children(&self) -> Vec<Tree> {
-        self.children
-            .get()
-            .unwrap_or(&vec![])
-            .iter()
-            .map(Tree::new)
-            .collect()
+        self.get_children().iter().map(Tree::new).collect()
     }
 
     fn diff(&self, tree: &mut Tree) {
-        let open = tree.state.downcast_ref::<State>().open;
+        let state = tree.state.downcast_ref::<State<Message>>();
 
-        tree.diff_children(if open {
-            self.children.get_or_init(|| self.init_children())
-        } else {
-            &[]
-        });
+        tree.diff_children(&self.init_children(state));
     }
 
     fn size(&self) -> Size<Length> {
@@ -241,15 +296,15 @@ where
     }
 
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State>()
+        tree::Tag::of::<State<Message>>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State::default())
+        tree::State::new(State::<Message>::default())
     }
 
     fn layout(&self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
-        let state = tree.state.downcast_ref::<State>();
+        let state = tree.state.downcast_ref::<State<Message>>();
 
         if !state.open {
             return Node::new(Size::new(
@@ -262,7 +317,7 @@ where
 
         self.diff(tree);
 
-        let state = tree.state.downcast_ref::<State>();
+        let state = tree.state.downcast_ref::<State<Message>>();
 
         let layout = layout::flex::resolve(
             Axis::Vertical,
@@ -275,7 +330,7 @@ where
                 .left(*state.line_height.get().unwrap()),
             0.0,
             Alignment::Start,
-            self.children.get_or_init(|| self.init_children()),
+            &self.get_children(),
             &mut tree.children,
         );
 
@@ -293,7 +348,7 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) -> Status {
-        let state = tree.state.downcast_mut::<State>();
+        let state = tree.state.downcast_mut::<State<Message>>();
 
         if let Some(pos) = cursor.position() {
             if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
@@ -311,9 +366,7 @@ where
             return Status::Ignored;
         }
 
-        self.children
-            .get_mut()
-            .unwrap()
+        self.init_children(state)
             .iter_mut()
             .zip(&mut tree.children)
             .zip(layout.children())
@@ -342,7 +395,7 @@ where
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
-        let state = tree.state.downcast_ref::<State>();
+        let state = tree.state.downcast_ref::<State<Message>>();
         let bounds = layout.bounds();
 
         let background = Quad {
@@ -403,10 +456,8 @@ where
             bounds,
         );
 
-        if state.open && !self.children.get().unwrap().is_empty() {
-            self.children
-                .get()
-                .unwrap()
+        if state.open && !self.init_children(state).is_empty() {
+            self.get_children()
                 .iter()
                 .zip(&tree.children)
                 .zip(layout.children())
@@ -432,11 +483,11 @@ where
     }
 }
 
-impl<'a, Message> From<Folder<'a, Message>> for Element<'a, Message, Theme, Renderer>
+impl<Message> From<Folder<Message>> for Element<'_, Message, Theme, Renderer>
 where
-    Message: Clone + 'a,
+    Message: Clone + 'static,
 {
-    fn from(folder: Folder<'a, Message>) -> Self {
+    fn from(folder: Folder<Message>) -> Self {
         Self::new(folder)
     }
 }

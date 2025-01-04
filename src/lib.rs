@@ -22,7 +22,6 @@
 //! }
 //! ```
 
-mod errentry;
 mod file;
 mod folder;
 
@@ -33,9 +32,9 @@ use std::path::PathBuf;
 
 /// Creates a new [`FileTree`] with the root at the given path.
 #[must_use]
-pub fn file_tree<'a, Message>(path: PathBuf) -> Option<FileTree<'a, Message>>
+pub fn file_tree<Message>(path: PathBuf) -> Option<FileTree<Message>>
 where
-    Message: Clone + 'a,
+    Message: Clone + 'static,
 {
-    FileTree::<'a, Message>::new(path)
+    FileTree::<Message>::new(path)
 }

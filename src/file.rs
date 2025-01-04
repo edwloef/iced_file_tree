@@ -29,14 +29,15 @@ struct State {
 }
 
 #[expect(clippy::type_complexity)]
-pub struct File<'a, Message> {
+#[derive(Clone)]
+pub struct File<Message> {
     path: PathBuf,
     name: String,
-    on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
-    on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
+    on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
+    on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
 }
 
-impl Debug for File<'_, ()> {
+impl<Message> Debug for File<Message> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("File")
             .field("path", &self.path)
@@ -44,12 +45,12 @@ impl Debug for File<'_, ()> {
     }
 }
 
-impl<'a, Message> File<'a, Message> {
+impl<Message> File<Message> {
     #[expect(clippy::type_complexity)]
     pub fn new_inner(
         path: PathBuf,
-        on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
-        on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'a>>>>,
+        on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'static>>>>,
+        on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'static>>>>,
         show_extensions: bool,
     ) -> Self {
         debug_assert!(path.is_file());
@@ -72,7 +73,7 @@ impl<'a, Message> File<'a, Message> {
     }
 }
 
-impl<Message> Widget<Message, Theme, Renderer> for File<'_, Message> {
+impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }
@@ -193,11 +194,11 @@ impl<Message> Widget<Message, Theme, Renderer> for File<'_, Message> {
     }
 }
 
-impl<'a, Message> From<File<'a, Message>> for Element<'a, Message, Theme, Renderer>
+impl<'a, Message> From<File<Message>> for Element<'a, Message, Theme, Renderer>
 where
     Message: Clone + 'a,
 {
-    fn from(file: File<'a, Message>) -> Self {
+    fn from(file: File<Message>) -> Self {
         Self::new(file)
     }
 }

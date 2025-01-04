@@ -85,11 +85,8 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         Size::new(Length::Fill, Length::Shrink)
     }
 
-    fn layout(&self, _tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
-        Node::new(Size::new(
-            limits.max().width,
-            renderer.default_size().0 * LINE_HEIGHT,
-        ))
+    fn layout(&self, _tree: &mut Tree, _renderer: &Renderer, limits: &Limits) -> Node {
+        Node::new(Size::new(limits.max().width, LINE_HEIGHT))
     }
 
     fn draw(
@@ -122,13 +119,7 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
 
         renderer.draw_svg(
             icon,
-            Rectangle::new(
-                bounds.position(),
-                Size::new(
-                    renderer.default_size().0 * LINE_HEIGHT,
-                    renderer.default_size().0 * LINE_HEIGHT,
-                ),
-            ),
+            Rectangle::new(bounds.position(), Size::new(LINE_HEIGHT, LINE_HEIGHT)),
         );
 
         let name = Text {
@@ -145,7 +136,7 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
 
         renderer.fill_text(
             name,
-            bounds.position() + Vector::new(renderer.default_size().0 * LINE_HEIGHT, 0.0),
+            bounds.position() + Vector::new(LINE_HEIGHT, -1.0),
             theme.extended_palette().secondary.base.text,
             bounds,
         );

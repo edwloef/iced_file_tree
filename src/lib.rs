@@ -27,4 +27,4 @@ mod file;
 mod file_tree;
 pub use file_tree::{file_tree, FileTree};
 
-const LINE_HEIGHT: f32 = 1.3;
+const LINE_HEIGHT: f32 = 21.0;

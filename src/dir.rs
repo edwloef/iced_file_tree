@@ -1,7 +1,7 @@
 use crate::{file::File, LINE_HEIGHT};
 use iced::{
     advanced::{
-        layout::{self, flex::Axis, Limits, Node},
+        layout::{Limits, Node},
         mouse::{self, Cursor},
         renderer::{Quad, Style},
         svg::{Handle, Renderer as _, Svg},
@@ -11,7 +11,7 @@ use iced::{
     },
     alignment::{Horizontal, Vertical},
     event::Status,
-    Alignment, Element, Event, Length, Padding, Rectangle, Renderer, Size, Theme, Vector,
+    Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
 use std::{
     cell::{OnceCell, RefCell},
@@ -221,30 +221,27 @@ where
         let state = tree.state.downcast_ref::<State<Message>>();
 
         if !state.open {
-            return Node::new(Size::new(
-                limits.max().width,
-                renderer.default_size().0 * LINE_HEIGHT,
-            ));
+            return Node::new(Size::new(limits.max().width, LINE_HEIGHT));
         }
 
         self.diff(tree);
 
-        let layout = layout::flex::resolve(
-            Axis::Vertical,
-            renderer,
-            limits,
-            Length::Fill,
-            Length::Shrink,
-            Padding::ZERO
-                .top(renderer.default_size().0 * LINE_HEIGHT)
-                .left(renderer.default_size().0 * LINE_HEIGHT),
-            0.0,
-            Alignment::Start,
-            &self.get_children(),
-            &mut tree.children,
-        );
+        let x = LINE_HEIGHT;
+        let mut y = LINE_HEIGHT;
 
-        layout
+        let children = self
+            .get_children()
+            .iter()
+            .zip(&mut tree.children)
+            .map(|(child, tree)| child.as_widget().layout(tree, renderer, limits))
+            .map(|layout| {
+                let layout = layout.translate(Vector::new(x, y));
+                y += layout.size().height;
+                layout
+            })
+            .collect();
+
+        Node::with_children(Size::new(limits.max().width, y), children)
     }
 
     fn on_event(
@@ -263,7 +260,7 @@ where
         if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             && cursor
                 .position_in(layout.bounds())
-                .is_some_and(|p| p.y <= renderer.default_size().0 * LINE_HEIGHT)
+                .is_some_and(|p| p.y <= LINE_HEIGHT)
         {
             state.open ^= true;
             shell.invalidate_layout();
@@ -310,16 +307,13 @@ where
         let state = tree.state.downcast_ref::<State<Message>>();
 
         let background = Quad {
-            bounds: Rectangle::new(
-                bounds.position(),
-                Size::new(bounds.width, renderer.default_size().0 * LINE_HEIGHT),
-            ),
+            bounds: Rectangle::new(bounds.position(), Size::new(bounds.width, LINE_HEIGHT)),
             ..Quad::default()
         };
         let background_color = cursor.position_in(bounds).map_or_else(
             || theme.extended_palette().primary.weak.color,
             |pos| {
-                if pos.y <= renderer.default_size().0 * LINE_HEIGHT {
+                if pos.y <= LINE_HEIGHT {
                     theme.extended_palette().secondary.weak.color
                 } else {
                     theme.extended_palette().primary.weak.color
@@ -336,15 +330,11 @@ where
         }))
         .color(theme.extended_palette().secondary.base.text);
 
-        let offset = (renderer.default_size().0 * LINE_HEIGHT * 0.1).round();
         renderer.draw_svg(
             icon,
             Rectangle::new(
-                bounds.position() + Vector::new(-offset, -offset),
-                Size::new(
-                    renderer.default_size().0.mul_add(LINE_HEIGHT, 2.0 * offset),
-                    renderer.default_size().0.mul_add(LINE_HEIGHT, 2.0 * offset),
-                ),
+                bounds.position() + Vector::new(-2.0, -2.0),
+                Size::new(LINE_HEIGHT + 4.0, LINE_HEIGHT + 4.0),
             ),
         );
 
@@ -362,7 +352,7 @@ where
 
         renderer.fill_text(
             name,
-            bounds.position() + Vector::new(renderer.default_size().0 * LINE_HEIGHT, 0.0),
+            bounds.position() + Vector::new(LINE_HEIGHT, -1.0),
             theme.extended_palette().secondary.base.text,
             bounds,
         );
@@ -380,8 +370,8 @@ where
                 });
 
             let offset = Vector::new(
-                (renderer.default_size().0 * LINE_HEIGHT).mul_add(0.5, -1.0),
-                (renderer.default_size().0 * LINE_HEIGHT).mul_add(1.5, -1.0),
+                LINE_HEIGHT.mul_add(0.5, -1.0),
+                LINE_HEIGHT.mul_add(1.5, -1.0),
             );
             let size = Size::new(2.0, bounds.size().height - offset.x - offset.y);
             let line = Quad {

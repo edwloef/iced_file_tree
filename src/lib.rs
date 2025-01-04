@@ -24,17 +24,7 @@
 
 mod dir;
 mod file;
+mod file_tree;
+pub use file_tree::{file_tree, FileTree};
 
-#[doc(inline)]
-pub use dir::Dir as FileTree;
-
-use std::path::PathBuf;
-
-/// Creates a new [`FileTree`] with the root at the given path.
-#[must_use]
-pub fn file_tree<Message>(path: PathBuf) -> Option<FileTree<Message>>
-where
-    Message: Clone + 'static,
-{
-    FileTree::<Message>::new(path)
-}
+const LINE_HEIGHT: f32 = 1.3;

@@ -1,4 +1,4 @@
-use crate::file::File;
+use crate::{file::File, LINE_HEIGHT};
 use iced::{
     advanced::{
         layout::{self, flex::Axis, Limits, Node},
@@ -26,7 +26,6 @@ const DIR_OPEN: &[u8] = include_bytes!("../assets/system-uicons--chevron-down.sv
 
 struct State<Message> {
     open: bool,
-    line_height: OnceCell<f32>,
     dirs: OnceCell<Rc<[Dir<Message>]>>,
     files: OnceCell<Rc<[File<Message>]>>,
 }
@@ -35,36 +34,12 @@ impl<Message> Default for State<Message> {
     fn default() -> Self {
         Self {
             open: false,
-            line_height: OnceCell::new(),
             dirs: OnceCell::new(),
             files: OnceCell::new(),
         }
     }
 }
 
-/// A lightweight file tree widget for the [iced](https://github.com/iced-rs/iced/tree/master) toolkit.
-///
-/// # Example
-/// ```no_run
-/// use iced::widget::scrollable;
-/// use iced_file_tree::file_tree;
-///
-/// enum Message {
-///     FileTreeMessage(PathBuf),
-///     // ...
-/// }
-///
-/// fn view(state: &State) -> Element<'_, Message> {
-///     let path: PathBuf = /* */
-///
-///     scrollable(
-///         file_tree(path)
-///             .unwrap()
-///             .on_double_click(Message::FileTreeMessage),
-///     )
-///     .into()
-/// }
-/// ```
 #[expect(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct Dir<Message> {
@@ -72,10 +47,10 @@ pub struct Dir<Message> {
     name: String,
     dirs: OnceCell<Rc<[Dir<Message>]>>,
     files: OnceCell<Rc<[File<Message>]>>,
-    on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
-    on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
-    show_hidden: bool,
-    show_extensions: bool,
+    pub on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
+    pub on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
+    pub show_hidden: bool,
+    pub show_extensions: bool,
 }
 
 impl<Message> Debug for Dir<Message> {
@@ -91,61 +66,8 @@ impl<Message> Dir<Message>
 where
     Message: Clone + 'static,
 {
-    /// Creates a new [`FileTree`](crate::FileTree) with the root at the given path.
-    #[must_use]
-    pub fn new(path: PathBuf) -> Option<Self> {
-        if std::fs::read_dir(&path).is_err() {
-            return None;
-        }
-
-        let name = path.file_name()?.to_string_lossy().into_owned();
-
-        Some(Self {
-            path,
-            name,
-            files: OnceCell::default(),
-            dirs: OnceCell::default(),
-            on_single_click: Rc::default(),
-            on_double_click: Rc::default(),
-            show_hidden: false,
-            show_extensions: true,
-        })
-    }
-
-    /// Sets the message that will be produced when the user single-clicks on a file within the file tree.
-    #[must_use]
-    pub fn on_single_click(self, on_single_click: impl Fn(PathBuf) -> Message + 'static) -> Self {
-        self.on_single_click
-            .borrow_mut()
-            .replace(Box::new(on_single_click));
-        self
-    }
-
-    /// Sets the message that will be produced when the user double-clicks on a file within the file tree.
-    #[must_use]
-    pub fn on_double_click(self, on_double_click: impl Fn(PathBuf) -> Message + 'static) -> Self {
-        self.on_double_click
-            .borrow_mut()
-            .replace(Box::new(on_double_click));
-        self
-    }
-
-    /// Enables or disables showing hidden files (disabled by default).
-    #[must_use]
-    pub fn hidden_files(mut self, show_hidden: bool) -> Self {
-        self.show_hidden = show_hidden;
-        self
-    }
-
-    #[must_use]
-    /// Enables or disables showing file extensions (enabled by default).
-    pub fn file_extensions(mut self, show_extensions: bool) -> Self {
-        self.show_extensions = show_extensions;
-        self
-    }
-
     #[expect(clippy::type_complexity)]
-    fn new_inner(
+    pub fn new_inner(
         path: PathBuf,
         on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
         on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
@@ -177,13 +99,13 @@ where
             .get_or_init(|| state.dirs.get_or_init(|| self.init_dirs()).clone())
             .iter()
             .cloned()
-            .map(Element::from)
+            .map(Element::new)
             .chain(
                 self.files
                     .get_or_init(|| state.files.get_or_init(|| self.init_files()).clone())
                     .iter()
                     .cloned()
-                    .map(Element::from),
+                    .map(Element::new),
             )
             .collect()
     }
@@ -194,14 +116,14 @@ where
             .into_iter()
             .flat_map(Deref::deref)
             .cloned()
-            .map(Element::from)
+            .map(Element::new)
             .chain(
                 self.files
                     .get()
                     .into_iter()
                     .flat_map(Deref::deref)
                     .cloned()
-                    .map(Element::from),
+                    .map(Element::new),
             )
             .collect()
     }
@@ -301,15 +223,11 @@ where
         if !state.open {
             return Node::new(Size::new(
                 limits.max().width,
-                *state
-                    .line_height
-                    .get_or_init(|| (renderer.default_size().0 * 1.3).ceil()),
+                renderer.default_size().0 * LINE_HEIGHT,
             ));
         }
 
         self.diff(tree);
-
-        let state = tree.state.downcast_ref::<State<Message>>();
 
         let layout = layout::flex::resolve(
             Axis::Vertical,
@@ -318,8 +236,8 @@ where
             Length::Fill,
             Length::Shrink,
             Padding::ZERO
-                .top(*state.line_height.get().unwrap())
-                .left(*state.line_height.get().unwrap()),
+                .top(renderer.default_size().0 * LINE_HEIGHT)
+                .left(renderer.default_size().0 * LINE_HEIGHT),
             0.0,
             Alignment::Start,
             &self.get_children(),
@@ -345,8 +263,8 @@ where
         if let Some(pos) = cursor.position() {
             if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
                 && layout.bounds().contains(pos)
-                && &cursor.position_in(layout.bounds()).unwrap().y
-                    <= state.line_height.get().unwrap()
+                && cursor.position_in(layout.bounds()).unwrap().y
+                    <= renderer.default_size().0 * LINE_HEIGHT
             {
                 state.open ^= true;
                 shell.invalidate_layout();
@@ -393,14 +311,14 @@ where
         let background = Quad {
             bounds: Rectangle::new(
                 bounds.position(),
-                Size::new(bounds.width, *state.line_height.get().unwrap()),
+                Size::new(bounds.width, renderer.default_size().0 * LINE_HEIGHT),
             ),
             ..Quad::default()
         };
         let background_color = cursor.position_in(bounds).map_or_else(
             || theme.extended_palette().primary.weak.color,
             |pos| {
-                if &pos.y <= state.line_height.get().unwrap() {
+                if pos.y <= renderer.default_size().0 * LINE_HEIGHT {
                     theme.extended_palette().secondary.weak.color
                 } else {
                     theme.extended_palette().primary.weak.color
@@ -417,14 +335,14 @@ where
         }))
         .color(theme.extended_palette().secondary.base.text);
 
-        let offset = (state.line_height.get().unwrap() * 0.1).round();
+        let offset = (renderer.default_size().0 * LINE_HEIGHT * 0.1).round();
         renderer.draw_svg(
             icon,
             Rectangle::new(
                 bounds.position() + Vector::new(-offset, -offset),
                 Size::new(
-                    state.line_height.get().unwrap() + 2.0 * offset,
-                    state.line_height.get().unwrap() + 2.0 * offset,
+                    renderer.default_size().0.mul_add(LINE_HEIGHT, 2.0 * offset),
+                    renderer.default_size().0.mul_add(LINE_HEIGHT, 2.0 * offset),
                 ),
             ),
         );
@@ -443,7 +361,7 @@ where
 
         renderer.fill_text(
             name,
-            bounds.position() + Vector::new(*state.line_height.get().unwrap(), 0.0),
+            bounds.position() + Vector::new(renderer.default_size().0 * LINE_HEIGHT, 0.0),
             theme.extended_palette().secondary.base.text,
             bounds,
         );
@@ -461,8 +379,8 @@ where
                 });
 
             let offset = Vector::new(
-                state.line_height.get().unwrap() * 0.5 - 1.0,
-                state.line_height.get().unwrap() * 1.5 - 1.0,
+                (renderer.default_size().0 * LINE_HEIGHT).mul_add(0.5, -1.0),
+                (renderer.default_size().0 * LINE_HEIGHT).mul_add(1.5, -1.0),
             );
             let size = Size::new(2.0, bounds.size().height - offset.x - offset.y);
             let line = Quad {
@@ -472,14 +390,5 @@ where
 
             renderer.fill_quad(line, theme.extended_palette().primary.weak.color);
         }
-    }
-}
-
-impl<Message> From<Dir<Message>> for Element<'_, Message, Theme, Renderer>
-where
-    Message: Clone + 'static,
-{
-    fn from(dir: Dir<Message>) -> Self {
-        Self::new(dir)
     }
 }

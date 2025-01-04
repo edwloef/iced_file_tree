@@ -1,4 +1,4 @@
-use core::f32;
+use crate::LINE_HEIGHT;
 use iced::{
     advanced::{
         layout::{Limits, Node},
@@ -7,14 +7,14 @@ use iced::{
         svg::{Handle, Renderer as _, Svg},
         text::{LineHeight, Renderer as _, Shaping, Wrapping},
         widget::{tree, Tree},
-        Layout, Renderer as _, Text, Widget,
+        Clipboard, Layout, Renderer as _, Shell, Text, Widget,
     },
     alignment::{Horizontal, Vertical},
     event::Status,
-    Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector,
+    Event, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
 use std::{
-    cell::{OnceCell, RefCell},
+    cell::RefCell,
     fmt::{Debug, Formatter},
     path::PathBuf,
     rc::Rc,
@@ -25,7 +25,6 @@ const FILE: &[u8] = include_bytes!("../assets/system-uicons--document.svg");
 #[derive(Default)]
 struct State {
     last_click: Option<Click>,
-    line_height: OnceCell<f32>,
 }
 
 #[expect(clippy::type_complexity)]
@@ -86,20 +85,16 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         Size::new(Length::Fill, Length::Shrink)
     }
 
-    fn layout(&self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
-        let state = tree.state.downcast_ref::<State>();
-
+    fn layout(&self, _tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
         Node::new(Size::new(
             limits.max().width,
-            *state
-                .line_height
-                .get_or_init(|| (renderer.default_size().0 * 1.3).ceil()),
+            renderer.default_size().0 * LINE_HEIGHT,
         ))
     }
 
     fn draw(
         &self,
-        tree: &Tree,
+        _tree: &Tree,
         renderer: &mut Renderer,
         theme: &Theme,
         _style: &Style,
@@ -107,7 +102,6 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         cursor: Cursor,
         _viewport: &Rectangle,
     ) {
-        let state = tree.state.downcast_ref::<State>();
         let bounds = layout.bounds();
 
         let background = Quad {
@@ -129,8 +123,8 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
             Rectangle::new(
                 bounds.position(),
                 Size::new(
-                    *state.line_height.get().unwrap(),
-                    *state.line_height.get().unwrap(),
+                    renderer.default_size().0 * LINE_HEIGHT,
+                    renderer.default_size().0 * LINE_HEIGHT,
                 ),
             ),
         );
@@ -149,7 +143,7 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
 
         renderer.fill_text(
             name,
-            bounds.position() + Vector::new(*state.line_height.get().unwrap(), 0.0),
+            bounds.position() + Vector::new(renderer.default_size().0 * LINE_HEIGHT, 0.0),
             theme.extended_palette().secondary.base.text,
             bounds,
         );
@@ -162,8 +156,8 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         layout: Layout<'_>,
         cursor: Cursor,
         _renderer: &Renderer,
-        _clipboard: &mut dyn iced::advanced::Clipboard,
-        shell: &mut iced::advanced::Shell<'_, Message>,
+        _clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) -> Status {
         let state = tree.state.downcast_mut::<State>();
@@ -191,14 +185,5 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         }
 
         Status::Ignored
-    }
-}
-
-impl<'a, Message> From<File<Message>> for Element<'a, Message, Theme, Renderer>
-where
-    Message: Clone + 'a,
-{
-    fn from(file: File<Message>) -> Self {
-        Self::new(file)
     }
 }

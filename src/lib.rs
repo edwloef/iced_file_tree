@@ -25,8 +25,6 @@
 mod dir;
 mod file;
 
-const LINE_HEIGHT: f32 = 1.3;
-
 #[doc(inline)]
 pub use dir::Dir as FileTree;
 

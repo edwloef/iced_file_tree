@@ -14,19 +14,18 @@ use iced::{
     Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
 use std::{
-    cell::RefCell,
+    cell::{OnceCell, RefCell},
     fmt::{Debug, Formatter},
     path::PathBuf,
     rc::Rc,
 };
-
-use crate::LINE_HEIGHT;
 
 const FILE: &[u8] = include_bytes!("../assets/system-uicons--document.svg");
 
 #[derive(Default)]
 struct State {
     last_click: Option<Click>,
+    line_height: OnceCell<f32>,
 }
 
 #[expect(clippy::type_complexity)]
@@ -87,26 +86,29 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         Size::new(Length::Fill, Length::Shrink)
     }
 
-    fn layout(&self, _tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
+    fn layout(&self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
+        let state = tree.state.downcast_ref::<State>();
+
         Node::new(Size::new(
             limits.max().width,
-            renderer.default_size().0 * LINE_HEIGHT,
+            *state
+                .line_height
+                .get_or_init(|| (renderer.default_size().0 * 1.3).ceil()),
         ))
     }
 
     fn draw(
         &self,
-        _tree: &Tree,
+        tree: &Tree,
         renderer: &mut Renderer,
         theme: &Theme,
         _style: &Style,
         layout: Layout<'_>,
         cursor: Cursor,
-        viewport: &Rectangle,
+        _viewport: &Rectangle,
     ) {
-        let Some(bounds) = layout.bounds().intersection(viewport) else {
-            return;
-        };
+        let state = tree.state.downcast_ref::<State>();
+        let bounds = layout.bounds();
 
         let background = Quad {
             bounds,
@@ -127,8 +129,8 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
             Rectangle::new(
                 bounds.position(),
                 Size::new(
-                    bounds.width.min(renderer.default_size().0 * LINE_HEIGHT),
-                    renderer.default_size().0 * LINE_HEIGHT,
+                    *state.line_height.get().unwrap(),
+                    *state.line_height.get().unwrap(),
                 ),
             ),
         );
@@ -147,7 +149,7 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
 
         renderer.fill_text(
             name,
-            bounds.position() + Vector::new(renderer.default_size().0 * LINE_HEIGHT, 0.0),
+            bounds.position() + Vector::new(*state.line_height.get().unwrap(), 0.0),
             theme.extended_palette().secondary.base.text,
             bounds,
         );

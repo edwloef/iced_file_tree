@@ -1,13 +1,13 @@
 [package]
 name = "iced_file_tree"
-version = "0.1.5"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "A lightweight file tree widget for the iced toolkit."
 repository = "https://github.com/edwloef/iced_file_tree"
 readme = "README.md"
 categories = ["gui"]
-rust-version = "1.81"
+rust-version = "1.82"
 
 [dependencies]
 iced = { version = "0.13.1", default-features = false, features = [

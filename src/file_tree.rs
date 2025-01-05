@@ -29,7 +29,7 @@ use std::{
 /// }
 ///
 /// fn view(state: &State) -> Element<'_, Message> {
-///     let path: PathBuf = /* */
+///     let path: PathBuf = // ...
 ///
 ///     scrollable(
 ///         file_tree(path)

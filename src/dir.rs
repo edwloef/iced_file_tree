@@ -80,27 +80,33 @@ where
         }
     }
 
-    fn init_children(&self, state: &State<Message>) -> Vec<Element<'_, Message, Theme, Renderer>> {
-        if !state.open {
-            return vec![];
-        }
+    fn init_children(
+        &self,
+        state: &State<Message>,
+    ) -> impl Iterator<Item = Element<'_, Message, Theme, Renderer>> + use<'_, Message> {
+        let dirs = if state.open {
+            &**self
+                .dirs
+                .get_or_init(|| state.dirs.get_or_init(|| self.init_dirs()).clone())
+        } else {
+            &[]
+        };
 
-        self.dirs
-            .get_or_init(|| state.dirs.get_or_init(|| self.init_dirs()).clone())
-            .iter()
+        let files = if state.open {
+            &**self
+                .files
+                .get_or_init(|| state.files.get_or_init(|| self.init_files()).clone())
+        } else {
+            &[]
+        };
+
+        dirs.iter()
             .cloned()
             .map(Element::new)
-            .chain(
-                self.files
-                    .get_or_init(|| state.files.get_or_init(|| self.init_files()).clone())
-                    .iter()
-                    .cloned()
-                    .map(Element::new),
-            )
-            .collect()
+            .chain(files.iter().cloned().map(Element::new))
     }
 
-    fn get_children(&self) -> Vec<Element<'_, Message, Theme, Renderer>> {
+    fn get_children(&self) -> impl Iterator<Item = Element<'_, Message, Theme, Renderer>> {
         self.dirs
             .get()
             .into_iter()
@@ -115,7 +121,6 @@ where
                     .cloned()
                     .map(Element::new),
             )
-            .collect()
     }
 
     fn init_files(&self) -> Rc<[File<Message>]> {
@@ -123,7 +128,7 @@ where
             return [].into();
         };
 
-        let mut files: Box<_> = files
+        let mut files = files
             .filter_map(Result::ok)
             .filter(|file| file.file_type().is_ok_and(|t| t.is_file()))
             .map(|file| {
@@ -133,7 +138,7 @@ where
                 (file, name)
             })
             .filter(|(_, name)| !self.show_hidden && !name.as_encoded_bytes().starts_with(b"."))
-            .collect();
+            .collect::<Box<_>>();
         files.sort_by(|(_, aname), (_, bname)| aname.cmp(bname));
         files
             .iter()
@@ -154,7 +159,7 @@ where
             return [].into();
         };
 
-        let mut dirs: Box<_> = dirs
+        let mut dirs = dirs
             .filter_map(Result::ok)
             .filter(|file| file.file_type().is_ok_and(|t| t.is_dir()))
             .map(|file| {
@@ -164,7 +169,7 @@ where
                 (file, name)
             })
             .filter(|(_, name)| !self.show_hidden && !name.as_encoded_bytes().starts_with(b"."))
-            .collect();
+            .collect::<Box<_>>();
         dirs.sort_by(|(_, aname), (_, bname)| aname.cmp(bname));
         dirs.iter()
             .map(|(entry, _)| {
@@ -186,13 +191,13 @@ where
     Message: Clone + 'static,
 {
     fn children(&self) -> Vec<Tree> {
-        self.get_children().iter().map(Tree::new).collect()
+        self.get_children().map(Tree::new).collect()
     }
 
     fn diff(&self, tree: &mut Tree) {
         let state = tree.state.downcast_ref::<State<Message>>();
 
-        tree.diff_children(&self.init_children(state));
+        tree.diff_children(&self.init_children(state).collect::<Box<_>>());
     }
 
     fn size(&self) -> Size<Length> {
@@ -221,7 +226,6 @@ where
 
         let children = self
             .get_children()
-            .iter()
             .zip(&mut tree.children)
             .map(|(child, tree)| child.as_widget().layout(tree, renderer, limits))
             .map(|layout| {
@@ -262,10 +266,9 @@ where
         }
 
         self.init_children(state)
-            .iter_mut()
             .zip(&mut tree.children)
             .zip(layout.children())
-            .map(|((child, state), layout)| {
+            .map(|((mut child, state), layout)| {
                 child.as_widget_mut().on_event(
                     state,
                     event.clone(),
@@ -347,9 +350,8 @@ where
             bounds,
         );
 
-        if state.open && !self.init_children(state).is_empty() {
+        if state.open && self.init_children(state).next().is_some() {
             self.get_children()
-                .iter()
                 .zip(&tree.children)
                 .zip(layout.children())
                 .filter(|(_, layout)| layout.bounds().intersects(viewport))

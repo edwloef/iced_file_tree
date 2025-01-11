@@ -165,13 +165,14 @@ where
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
-        let Some(bounds) = layout.bounds().intersection(viewport) else {
-            return;
-        };
+        let mut bounds = layout.bounds();
+
+        // I have no clue why this is necessary
+        bounds.height += 1.0;
 
         renderer.with_layer(bounds, |renderer| {
             self.0
-                .draw(tree, renderer, theme, style, layout, cursor, &bounds);
+                .draw(tree, renderer, theme, style, layout, cursor, viewport);
         });
     }
 }

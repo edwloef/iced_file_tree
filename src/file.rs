@@ -86,7 +86,9 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
-        let Some(bounds) = layout.bounds().intersection(viewport) else {
+        let bounds = layout.bounds();
+
+        if !bounds.intersects(viewport) {
             return;
         };
 

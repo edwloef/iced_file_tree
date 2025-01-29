@@ -165,7 +165,9 @@ where
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
-        let mut bounds = layout.bounds();
+        let Some(mut bounds) = layout.bounds().intersection(viewport) else {
+            return;
+        };
 
         // I have no clue why this is necessary
         bounds.height += 1.0;

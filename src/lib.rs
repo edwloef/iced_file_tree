@@ -15,7 +15,6 @@
 //!
 //!     scrollable(
 //!         file_tree(path)
-//!             .unwrap()
 //!             .on_double_click(Message::FileTreeMessage),
 //!     )
 //!     .into()

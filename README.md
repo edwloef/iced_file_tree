@@ -14,7 +14,7 @@ Include `iced_file_tree` as a dependency in your `Cargo.toml`:
 ```toml
 [dependencies]
 iced = "0.13.1"
-iced_file_tree = "0.2.0"
+iced_file_tree = "0.3.0"
 ```
 
 ### Example
@@ -32,7 +32,6 @@ fn view(state: &State) -> Element<'_, Message> {
 
     scrollable(
         file_tree(path)
-            .unwrap()
             .on_double_click(Message::FileTreeMessage),
     )
     .into()

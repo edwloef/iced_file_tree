@@ -13,7 +13,7 @@ use iced::{
     event::Status,
     Event, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
-use std::{cell::RefCell, path::PathBuf, rc::Rc};
+use std::path::PathBuf;
 
 const FILE: &[u8] = include_bytes!("../assets/system-uicons--document.svg");
 
@@ -22,21 +22,19 @@ struct State {
     last_click: Option<Click>,
 }
 
-#[expect(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct File<Message> {
     path: PathBuf,
     name: String,
-    on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
-    on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
+    on_single_click: Option<fn(PathBuf) -> Message>,
+    on_double_click: Option<fn(PathBuf) -> Message>,
 }
 
 impl<Message> File<Message> {
-    #[expect(clippy::type_complexity)]
     pub fn new_inner(
         path: PathBuf,
-        on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'static>>>>,
-        on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message + 'static>>>>,
+        on_single_click: Option<fn(PathBuf) -> Message>,
+        on_double_click: Option<fn(PathBuf) -> Message>,
         show_extensions: bool,
     ) -> Self {
         debug_assert!(path.is_file());
@@ -149,11 +147,11 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         let state = tree.state.downcast_mut::<State>();
 
         if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) {
-            if let Some(on_single_click) = self.on_single_click.borrow().as_deref() {
+            if let Some(on_single_click) = self.on_single_click {
                 shell.publish(on_single_click(self.path.clone()));
             }
 
-            if let Some(on_double_click) = self.on_double_click.borrow().as_deref() {
+            if let Some(on_double_click) = self.on_double_click {
                 let new_click = Click::new(pos, mouse::Button::Left, state.last_click);
 
                 if matches!(new_click.kind(), mouse::click::Kind::Double) {

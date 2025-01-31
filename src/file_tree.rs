@@ -13,7 +13,6 @@ use iced::{
 use std::{
     fmt::{Debug, Formatter},
     path::PathBuf,
-    rc::Rc,
 };
 
 /// A lightweight file tree widget for the [iced](https://github.com/iced-rs/iced/tree/master) toolkit.
@@ -33,7 +32,6 @@ use std::{
 ///
 ///     scrollable(
 ///         file_tree(path)
-///             .unwrap()
 ///             .on_double_click(Message::FileTreeMessage),
 ///     )
 ///     .into()
@@ -53,7 +51,7 @@ impl<Message> Debug for FileTree<Message> {
 
 /// Creates a new [`FileTree`] with the root at the given path.
 #[must_use]
-pub fn file_tree<Message>(path: PathBuf) -> Option<FileTree<Message>>
+pub fn file_tree<Message>(path: PathBuf) -> FileTree<Message>
 where
     Message: Clone + 'static,
 {
@@ -66,37 +64,21 @@ where
 {
     /// Creates a new [`FileTree`] with the root at the given path.
     #[must_use]
-    pub fn new(path: PathBuf) -> Option<Self> {
-        if std::fs::read_dir(&path).is_err() {
-            return None;
-        }
-
-        Some(Self(Dir::new_inner(
-            path,
-            Rc::default(),
-            Rc::default(),
-            false,
-            true,
-        )))
+    pub fn new(path: PathBuf) -> Self {
+        Self(Dir::new_inner(path, None, None, false, true))
     }
 
     /// Sets the message that will be produced when the user single-clicks on a file within the [`FileTree`].
     #[must_use]
-    pub fn on_single_click(self, on_single_click: impl Fn(PathBuf) -> Message + 'static) -> Self {
-        self.0
-            .on_single_click
-            .borrow_mut()
-            .replace(Box::new(on_single_click));
+    pub fn on_single_click(mut self, on_single_click: fn(PathBuf) -> Message) -> Self {
+        self.0.on_single_click.replace(on_single_click);
         self
     }
 
     /// Sets the message that will be produced when the user double-clicks on a file within the [`FileTree`].
     #[must_use]
-    pub fn on_double_click(self, on_double_click: impl Fn(PathBuf) -> Message + 'static) -> Self {
-        self.0
-            .on_double_click
-            .borrow_mut()
-            .replace(Box::new(on_double_click));
+    pub fn on_double_click(mut self, on_double_click: fn(PathBuf) -> Message) -> Self {
+        self.0.on_double_click.replace(on_double_click);
         self
     }
 

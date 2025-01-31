@@ -13,12 +13,7 @@ use iced::{
     event::Status,
     Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
-use std::{
-    cell::{OnceCell, RefCell},
-    ops::Deref,
-    path::PathBuf,
-    rc::Rc,
-};
+use std::{cell::OnceCell, ops::Deref, path::PathBuf, rc::Rc};
 
 const DIR_CLOSED: &[u8] = include_bytes!("../assets/system-uicons--chevron-right.svg");
 const DIR_OPEN: &[u8] = include_bytes!("../assets/system-uicons--chevron-down.svg");
@@ -39,15 +34,14 @@ impl<Message> Default for State<Message> {
     }
 }
 
-#[expect(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct Dir<Message> {
     pub path: PathBuf,
     name: String,
     dirs: OnceCell<Rc<[Dir<Message>]>>,
     files: OnceCell<Rc<[File<Message>]>>,
-    pub on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
-    pub on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
+    pub on_single_click: Option<fn(PathBuf) -> Message>,
+    pub on_double_click: Option<fn(PathBuf) -> Message>,
     pub show_hidden: bool,
     pub show_extensions: bool,
 }
@@ -56,11 +50,10 @@ impl<Message> Dir<Message>
 where
     Message: Clone + 'static,
 {
-    #[expect(clippy::type_complexity)]
     pub fn new_inner(
         path: PathBuf,
-        on_single_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
-        on_double_click: Rc<RefCell<Option<Box<dyn Fn(PathBuf) -> Message>>>>,
+        on_single_click: Option<fn(PathBuf) -> Message>,
+        on_double_click: Option<fn(PathBuf) -> Message>,
         show_hidden: bool,
         show_extensions: bool,
     ) -> Self {
@@ -146,8 +139,8 @@ where
                 let path = entry.path();
                 File::new_inner(
                     path,
-                    self.on_single_click.clone(),
-                    self.on_double_click.clone(),
+                    self.on_single_click,
+                    self.on_double_click,
                     self.show_extensions,
                 )
             })
@@ -176,8 +169,8 @@ where
                 let path = entry.path();
                 Self::new_inner(
                     path,
-                    self.on_single_click.clone(),
-                    self.on_double_click.clone(),
+                    self.on_single_click,
+                    self.on_double_click,
                     self.show_hidden,
                     self.show_extensions,
                 )

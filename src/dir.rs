@@ -1,17 +1,16 @@
-use crate::{file::File, LINE_HEIGHT};
+use crate::{LINE_HEIGHT, file::File};
 use iced::{
+    Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector,
     advanced::{
+        Clipboard, Layout, Renderer as _, Shell, Text, Widget,
         layout::{Limits, Node},
         mouse::{self, Cursor},
         renderer::{Quad, Style},
         svg::{Handle, Renderer as _, Svg},
         text::{LineHeight, Renderer as _, Shaping, Wrapping},
-        widget::{tree, Tree},
-        Clipboard, Layout, Renderer as _, Shell, Text, Widget,
+        widget::{Tree, tree},
     },
     alignment::{Horizontal, Vertical},
-    event::Status,
-    Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
 use std::{cell::OnceCell, ops::Deref, path::PathBuf, rc::Rc};
 
@@ -20,6 +19,7 @@ const DIR_OPEN: &[u8] = include_bytes!("../assets/system-uicons--chevron-down.sv
 
 struct State<Message> {
     open: bool,
+    hovered: bool,
     dirs: OnceCell<Rc<[Dir<Message>]>>,
     files: OnceCell<Rc<[File<Message>]>>,
 }
@@ -27,9 +27,10 @@ struct State<Message> {
 impl<Message> Default for State<Message> {
     fn default() -> Self {
         Self {
-            open: false,
-            dirs: OnceCell::new(),
-            files: OnceCell::new(),
+            open: bool::default(),
+            hovered: bool::default(),
+            dirs: OnceCell::default(),
+            files: OnceCell::default(),
         }
     }
 }
@@ -231,49 +232,61 @@ where
         Node::with_children(Size::new(limits.max().width, y), children)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: Event,
+        event: &Event,
         layout: Layout<'_>,
         cursor: Cursor,
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> Status {
+    ) {
         let state = tree.state.downcast_mut::<State<Message>>();
+        let hovered = state.hovered;
 
-        if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
-            && cursor
-                .position_in(layout.bounds())
-                .is_some_and(|p| p.y <= LINE_HEIGHT)
+        if shell.is_event_captured() {
+            state.hovered = false;
+
+            if hovered != state.hovered {
+                shell.request_redraw();
+            }
+
+            return;
+        }
+
+        if cursor
+            .position_in(layout.bounds())
+            .is_some_and(|p| p.y <= LINE_HEIGHT)
         {
-            state.open ^= true;
-            shell.invalidate_layout();
-            return Status::Captured;
+            state.hovered = true;
+
+            if *event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) {
+                state.open ^= true;
+
+                shell.invalidate_layout();
+                shell.request_redraw();
+                shell.capture_event();
+            }
+        } else {
+            state.hovered = false;
         }
 
-        if !state.open {
-            return Status::Ignored;
+        if hovered != state.hovered {
+            shell.request_redraw();
         }
 
-        self.init_children(state)
-            .zip(&mut tree.children)
-            .zip(layout.children())
-            .map(|((mut child, state), layout)| {
-                child.as_widget_mut().on_event(
-                    state,
-                    event.clone(),
-                    layout,
-                    cursor,
-                    renderer,
-                    clipboard,
-                    shell,
-                    viewport,
-                )
-            })
-            .fold(Status::Ignored, Status::merge)
+        if state.open {
+            self.init_children(state)
+                .zip(&mut tree.children)
+                .zip(layout.children())
+                .for_each(|((mut child, state), layout)| {
+                    child.as_widget_mut().update(
+                        state, event, layout, cursor, renderer, clipboard, shell, viewport,
+                    );
+                });
+        }
     }
 
     fn draw(
@@ -298,16 +311,11 @@ where
             bounds: Rectangle::new(bounds.position(), Size::new(bounds.width, LINE_HEIGHT)),
             ..Quad::default()
         };
-        let background_color = cursor.position_in(bounds).map_or_else(
-            || theme.extended_palette().primary.weak.color,
-            |pos| {
-                if pos.y <= LINE_HEIGHT {
-                    theme.extended_palette().secondary.weak.color
-                } else {
-                    theme.extended_palette().primary.weak.color
-                }
-            },
-        );
+        let background_color = if state.hovered {
+            theme.extended_palette().secondary.weak.color
+        } else {
+            theme.extended_palette().primary.weak.color
+        };
 
         renderer.fill_quad(background, background_color);
 

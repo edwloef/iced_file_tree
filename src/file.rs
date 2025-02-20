@@ -1,17 +1,16 @@
 use crate::LINE_HEIGHT;
 use iced::{
+    Event, Length, Rectangle, Renderer, Size, Theme, Vector,
     advanced::{
+        Clipboard, Layout, Renderer as _, Shell, Text, Widget,
         layout::{Limits, Node},
         mouse::{self, Click, Cursor},
         renderer::{Quad, Style},
         svg::{Handle, Renderer as _, Svg},
         text::{LineHeight, Renderer as _, Shaping, Wrapping},
-        widget::{tree, Tree},
-        Clipboard, Layout, Renderer as _, Shell, Text, Widget,
+        widget::{Tree, tree},
     },
     alignment::{Horizontal, Vertical},
-    event::Status,
-    Event, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
 use std::path::PathBuf;
 
@@ -20,6 +19,7 @@ const FILE: &[u8] = include_bytes!("../assets/system-uicons--document.svg");
 #[derive(Default)]
 struct State {
     last_click: Option<Click>,
+    hovered: bool,
 }
 
 #[derive(Clone)]
@@ -76,12 +76,12 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
 
     fn draw(
         &self,
-        _tree: &Tree,
+        tree: &Tree,
         renderer: &mut Renderer,
         theme: &Theme,
         _style: &Style,
         layout: Layout<'_>,
-        cursor: Cursor,
+        _cursor: Cursor,
         viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
@@ -94,10 +94,14 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
             bounds,
             ..Quad::default()
         };
-        let background_color = cursor.position_in(bounds).map_or_else(
-            || theme.extended_palette().primary.weak.color,
-            |_| theme.extended_palette().secondary.weak.color,
-        );
+
+        let state = tree.state.downcast_ref::<State>();
+
+        let background_color = if state.hovered {
+            theme.extended_palette().secondary.weak.color
+        } else {
+            theme.extended_palette().primary.weak.color
+        };
 
         renderer.fill_quad(background, background_color);
 
@@ -129,41 +133,56 @@ impl<Message> Widget<Message, Theme, Renderer> for File<Message> {
         );
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: Event,
+        event: &Event,
         layout: Layout<'_>,
         cursor: Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> Status {
-        let Some(pos) = cursor.position_in(layout.bounds()) else {
-            return Status::Ignored;
-        };
-
+    ) {
         let state = tree.state.downcast_mut::<State>();
+        let hovered = state.hovered;
 
-        if event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) {
-            if let Some(on_single_click) = self.on_single_click {
-                shell.publish(on_single_click(self.path.clone()));
+        if shell.is_event_captured() {
+            state.hovered = false;
+
+            if hovered != state.hovered {
+                shell.request_redraw();
             }
 
-            if let Some(on_double_click) = self.on_double_click {
-                let new_click = Click::new(pos, mouse::Button::Left, state.last_click);
-
-                if matches!(new_click.kind(), mouse::click::Kind::Double) {
-                    shell.publish(on_double_click(self.path.clone()));
-                }
-
-                state.last_click = Some(new_click);
-            }
-
-            return Status::Captured;
+            return;
         }
 
-        Status::Ignored
+        if let Some(pos) = cursor.position_in(layout.bounds()) {
+            state.hovered = true;
+
+            if *event == Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) {
+                if let Some(on_single_click) = self.on_single_click {
+                    shell.publish(on_single_click(self.path.clone()));
+                }
+
+                if let Some(on_double_click) = self.on_double_click {
+                    let new_click = Click::new(pos, mouse::Button::Left, state.last_click);
+
+                    if matches!(new_click.kind(), mouse::click::Kind::Double) {
+                        shell.publish(on_double_click(self.path.clone()));
+                    }
+
+                    state.last_click = Some(new_click);
+                }
+
+                shell.capture_event();
+            }
+        } else {
+            state.hovered = false;
+        };
+
+        if hovered != state.hovered {
+            shell.request_redraw();
+        }
     }
 }

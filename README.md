@@ -14,7 +14,7 @@ Include `iced_file_tree` as a dependency in your `Cargo.toml`:
 ```toml
 [dependencies]
 iced = "0.13.1"
-iced_file_tree = "0.3.0"
+iced_file_tree = "0.3.1"
 ```
 
 ### Example

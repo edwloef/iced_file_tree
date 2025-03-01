@@ -10,20 +10,20 @@
 //!     // ...
 //! }
 //!
-//! fn view(state: &State) -> Element<'_, Message> {
+//! fn view(state: &State) -> impl Into<Element<'_, Message>> {
 //!     let path: PathBuf = // ...
 //!
 //!     scrollable(
 //!         file_tree(path)
 //!             .on_double_click(Message::FileTreeMessage),
 //!     )
-//!     .into()
 //! }
 //! ```
 
 mod dir;
 mod file;
 mod file_tree;
-pub use file_tree::{file_tree, FileTree};
+
+pub use file_tree::{FileTree, file_tree};
 
 const LINE_HEIGHT: f32 = 21.0;

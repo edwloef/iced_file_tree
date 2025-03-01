@@ -1,14 +1,13 @@
 use crate::dir::Dir;
 use iced::{
+    Element, Event, Length, Rectangle, Renderer, Size, Theme,
     advanced::{
+        Clipboard, Layout, Renderer as _, Shell, Widget,
         layout::{Limits, Node},
         renderer::Style,
-        widget::{tree, Tree},
-        Clipboard, Layout, Renderer as _, Shell, Widget,
+        widget::{Tree, tree},
     },
-    event::Status,
     mouse::Cursor,
-    Element, Event, Length, Rectangle, Renderer, Size, Theme,
 };
 use std::{
     fmt::{Debug, Formatter},
@@ -27,14 +26,13 @@ use std::{
 ///     // ...
 /// }
 ///
-/// fn view(state: &State) -> Element<'_, Message> {
+/// fn view(state: &State) -> impl Into<Element<'_, Message>> {
 ///     let path: PathBuf = // ...
 ///
 ///     scrollable(
 ///         file_tree(path)
 ///             .on_double_click(Message::FileTreeMessage),
 ///     )
-///     .into()
 /// }
 /// ```
 pub struct FileTree<Message>(Dir<Message>);
@@ -121,20 +119,20 @@ where
         self.0.layout(tree, renderer, limits)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: Event,
+        event: &Event,
         layout: Layout<'_>,
         cursor: Cursor,
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> Status {
-        self.0.on_event(
+    ) {
+        self.0.update(
             tree, event, layout, cursor, renderer, clipboard, shell, viewport,
-        )
+        );
     }
 
     fn draw(
